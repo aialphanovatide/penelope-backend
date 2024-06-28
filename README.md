@@ -1,17 +1,110 @@
-Migration with Docker:
+# Flask PostgreSQL Docker Project
 
-### docker-compose run web alembic revision --autogenerate -m "Description of the change"
-### docker-compose run web alembic upgrade head
+This project is a Flask application with PostgreSQL database, containerized using Docker and Docker Compose. It uses Alembic for database migrations.
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Setup](#setup)
+- [Running the Application](#running-the-application)
+- [Database Migrations](#database-migrations)
+- [Useful Commands](#useful-commands)
+
+## Prerequisites
+
+Ensure you have the following installed on your system:
+
+- Docker
+- Docker Compose
+
+## Setup
+
+1. Clone this repository:
+
+git clone <repository-url>
+cd <project-directory>
+
+2. Create a `.env` file in the project root and add necessary environment variables:
+
+FLASK_APP=app.py
+FLASK_ENV=development
+DATABASE_URL=postgresql://user:password@db:5432/dbname
+
+## Running the Application
+
+To start the application, run:
 
 
-Creating an auto migrations
-  alembic revision --autogenerate -m "Auto migrations"
-  alembic upgrade head
+docker-compose up --build
+
+The application should now be running at `http://localhost:5000`.
+
+To stop the application, use:
 
 
-  downgrade to prev revisition
-  alembic downgrade -1
-   or 
-  alembic current
-  alembic downgrade <previous_revision>
+docker-compose down
 
+## Database Migrations
+
+This project uses Alembic for database migrations. Here are some useful commands:
+
+### Creating a New Migration
+
+To create a new migration:
+
+
+docker-compose run web alembic revision --autogenerate -m "Description of the change"
+
+### Applying Migrations
+
+To apply all pending migrations:
+
+
+docker-compose run web alembic upgrade head
+
+### Creating Auto Migrations
+
+To create and apply auto migrations:
+
+
+docker-compose run web alembic revision --autogenerate -m "Auto migrations"
+docker-compose run web alembic upgrade head
+
+### Downgrading Migrations
+
+To downgrade to the previous revision:
+
+
+docker-compose run web alembic downgrade -1
+
+Or to downgrade to a specific revision:
+
+
+docker-compose run web alembic current
+docker-compose run web alembic downgrade <previous_revision>
+
+## Useful Commands
+
+Here are some additional useful commands:
+
+- To view current migration version:
+
+docker-compose run web alembic current
+
+- To view migration history:
+
+docker-compose run web alembic history
+
+- To access the PostgreSQL database:
+
+docker-compose exec db psql -U <username> -d <dbname>
+
+## Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+
+This README provides a comprehensive guide for setting up, running, and managing your Flask PostgreSQL Docker project. It includes sections on prerequisites, setup, running the application, database migrations, and useful commands. You may want to customize it further based on your specific project requirements and add any additional sections that might be relevant.
