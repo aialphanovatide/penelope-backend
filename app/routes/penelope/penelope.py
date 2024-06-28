@@ -1,5 +1,5 @@
 import os
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template_string
 from app.penelope.penelope import penelope_manager
 from werkzeug.exceptions import BadRequest
 from config import Session
@@ -73,3 +73,66 @@ def update_feedback(message_id):
 
     except Exception as e:
         return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+    
+
+
+@penelope.route('/', methods=['GET'])
+def welcome():
+    return render_template_string("""
+                            <!DOCTYPE html>
+                            <html lang="en">
+                            <head>
+                                <meta charset="UTF-8">
+                                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                                <title>Welcome</title>
+                                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+                                <style>
+                                    body {
+                                        font-family: Arial, sans-serif;
+                                        background-color: #f4f4f9;
+                                        display: flex;
+                                        justify-content: center;
+                                        align-items: center;
+                                        height: 100vh;
+                                        margin: 0;
+                                    }
+                                    .welcome-container {
+                                        text-align: center;
+                                        background: white;
+                                        padding: 30px;
+                                        border-radius: 10px;
+                                        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                                    }
+                                    .welcome-container h1 {
+                                        color: #333;
+                                    }
+                                    .welcome-container p {
+                                        color: #666;
+                                    }
+                                    .welcome-container .btn {
+                                        display: inline-block;
+                                        margin-top: 20px;
+                                        padding: 10px 20px;
+                                        font-size: 16px;
+                                        color: white;
+                                        background-color: #007BFF;
+                                        border: none;
+                                        border-radius: 5px;
+                                        text-decoration: none;
+                                        cursor: pointer;
+                                        transition: background-color 0.3s;
+                                    }
+                                    .welcome-container .btn:hover {
+                                        background-color: #0056b3;
+                                    }
+                                </style>
+                            </head>
+                            <body>
+                                <div class="welcome-container">
+                                    <h1>Welcome to the Server!</h1>
+                                    <p>We're glad to have you here.</p>
+                                    <a href="#" class="btn">Get Started</a>
+                                </div>
+                            </body>
+                            </html>
+                            """)

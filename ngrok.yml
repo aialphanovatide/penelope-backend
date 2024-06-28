@@ -1,0 +1,8 @@
+version: 2
+authtoken: ${NGROK_AUTH_TOKEN}
+tunnels:
+  server:
+    addr: http://host.docker.internal:5000
+    proto: http
+  env_file:
+    - .env

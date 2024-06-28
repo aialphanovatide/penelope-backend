@@ -126,6 +126,12 @@ docker-compose run web alembic history
 docker-compose exec db psql -U <username> -d <dbname>
 ```
 
+- To start Ngrok Service
+
+```console
+docker run -it -e NGROK_AUTHTOKEN={NGROK_AUTHTOKEN} ngrok/ngrok http http://host.docker.internal:PORT --domain=DOMAIN
+```
+
 ## Contributing
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests.
