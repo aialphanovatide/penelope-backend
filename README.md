@@ -1,4 +1,4 @@
-# Flask PostgreSQL Docker Project
+# Penelope
 
 This project is a Flask application with PostgreSQL database, containerized using Docker and Docker Compose. It uses Alembic for database migrations.
 
@@ -21,28 +21,37 @@ Ensure you have the following installed on your system:
 
 1. Clone this repository:
 
+```console
 git clone <repository-url>
+```
+
+```console
 cd <project-directory>
+```
 
 2. Create a `.env` file in the project root and add necessary environment variables:
 
-FLASK_APP=app.py
-FLASK_ENV=development
-DATABASE_URL=postgresql://user:password@db:5432/dbname
+- FLASK_APP=run.py
+
+- FLASK_ENV=development
+
+- DATABASE_URL=postgresql://user:password@db:5432/dbname
 
 ## Running the Application
 
 To start the application, run:
 
-
+```console
 docker-compose up --build
+```
 
 The application should now be running at `http://localhost:5000`.
 
 To stop the application, use:
 
-
+```console
 docker-compose down
+```
 
 ## Database Migrations
 
@@ -52,36 +61,48 @@ This project uses Alembic for database migrations. Here are some useful commands
 
 To create a new migration:
 
-
+```console
 docker-compose run web alembic revision --autogenerate -m "Description of the change"
+```
 
 ### Applying Migrations
 
 To apply all pending migrations:
 
-
+```console
 docker-compose run web alembic upgrade head
+```
 
 ### Creating Auto Migrations
 
 To create and apply auto migrations:
 
-
+```console
 docker-compose run web alembic revision --autogenerate -m "Auto migrations"
+```
+
+```console
 docker-compose run web alembic upgrade head
+```
 
 ### Downgrading Migrations
 
 To downgrade to the previous revision:
 
-
+```console
 docker-compose run web alembic downgrade -1
+```
 
 Or to downgrade to a specific revision:
 
 
+```console
 docker-compose run web alembic current
+```
+
+```console
 docker-compose run web alembic downgrade <previous_revision>
+```
 
 ## Useful Commands
 
@@ -89,15 +110,21 @@ Here are some additional useful commands:
 
 - To view current migration version:
 
+```console
 docker-compose run web alembic current
+```
 
 - To view migration history:
 
+```console
 docker-compose run web alembic history
+```
 
 - To access the PostgreSQL database:
 
+```console
 docker-compose exec db psql -U <username> -d <dbname>
+```
 
 ## Contributing
 
