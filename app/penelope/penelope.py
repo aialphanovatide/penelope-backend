@@ -469,6 +469,14 @@ class OpenAIAssistantManager:
         self.thread = None
         print("Thread reset complete.")
 
+    def rollback(self):
+        print("Rolling back database transaction...")
+        try:
+            self.db_session.rollback()
+            print("Database transaction rolled back successfully.")
+        except Exception as e:
+            print(f"Error during rollback: {str(e)}")
+
 # Initialize the assistant manager
 api_key = os.getenv("OPENAI_API_KEY")
 COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")

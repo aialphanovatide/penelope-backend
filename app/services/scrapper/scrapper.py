@@ -25,15 +25,17 @@ class Scraper:
         """
         try:
             response = requests.get(url, headers=self.headers)
-            response.raise_for_status()
-
-            if format == 'html':
-                return response.text
-            elif format == 'txt':
-                soup = BeautifulSoup(response.text, 'html.parser')
-                return soup.get_text().strip().replace('\n', '')
-            else:
-                raise ValueError("Invalid return format. Use 'html' or 'txt'.")
+           
+            if response.status_code == 200:
+                if format == 'html':
+                    return response.text
+                elif format == 'txt':
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    return soup.get_text().strip().replace('\n', '')
+                else:
+                    raise ValueError("Invalid return format. Use 'html' or 'txt'.")
+            
+            return "The URL denied access"
 
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"Request failed in scraper: {e}")

@@ -48,11 +48,9 @@ def penelope_inference():
         }), HTTPStatus.BAD_REQUEST
 
     except Exception as e:
-        # Log the exception here
-        print(f"An error occurred: {str(e)}")
         return jsonify({
             "success": False,
-            "error": "An internal server error occurred"
+            "error": f"An internal server error occurred: {str(e)}"
         }), HTTPStatus.INTERNAL_SERVER_ERROR
     
 
