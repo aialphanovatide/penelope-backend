@@ -11,3 +11,5 @@ gradio
 sqlalchemy
 alembic
 psycopg2-binary
+google-generativeai
+uuid

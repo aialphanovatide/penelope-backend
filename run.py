@@ -6,4 +6,4 @@ load_dotenv()
 app = create_app()
 
 if __name__ == '__main__':
-    app.run(port=5000, debug=True, load_dotenv=True, use_reloader=False, host="0.0.0.0")
+    app.run(port=5000, debug=True, load_dotenv=True, use_reloader=False, host="0.0.0.0", threaded=True)

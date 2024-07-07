@@ -3,35 +3,39 @@
 # import time
 # from openai import OpenAI
 # from typing import List, Any, Dict
+# from datetime import datetime
+# from sqlalchemy.orm import Session
 # from app.services.scrapper.scrapper import Scraper
 # from app.services.coingecko.coingecko import CoinGeckoAPI
 # from app.services.news_bot.news_bot import CoinNewsFetcher
 # from app.penelope.vector_store_module.vector_store import VectorStoreManager
 # from app.services.defillama.defillama import LlamaChainFetcher
 # from app.penelope.assistant_module.assistant import AssistantManager
+# from config import Message, Thread, Session
+# from app.services.perplexity.perplexity import PerplexityAPI
+# from app.services.openai_chat.openai import ChatGPTAPI
+# from app.services.gemini.gemini import GeminiAPI
 
-# COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
-
-# COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3"
-# COINGECKO_HEADERS = {
-#     "accept": "application/json",
-#     "x-cg-pro-api-key": COINGECKO_API_KEY,
-# }
 
 # class OpenAIAssistantManager:
-#     def __init__(self, api_key, COINGECKO_HEADERS, COINGECKO_BASE_URL):
+#     def __init__(self, api_key, COINGECKO_HEADERS, COINGECKO_BASE_URL, verbose: str=True):
 #         print("Initializing OpenAIAssistantManager...")
 #         self.client = OpenAI(api_key=api_key)
 #         self.thread = None
+#         self.queue = []
 #         self.vector_store = VectorStoreManager(api_key=api_key)
 #         self.scraper = Scraper()
+#         self.system_prompt = "You are Penelope, an exceptionally polite and intelligent AI Assistant. You specialize in creating detailed analyses, writing concise summaries, conducting thorough information searches, and retrieving real-time data efficiently."
+#         self.assistant_manager = AssistantManager(api_key=api_key)
+#         self.gemini = GeminiAPI(verbose=verbose)
+#         self.perplexity = PerplexityAPI(verbose=verbose)
+#         self.chatgpt = ChatGPTAPI(verbose=verbose)
 #         self.news_fetcher = CoinNewsFetcher()
 #         self.defillama = LlamaChainFetcher(coingecko_base_url=COINGECKO_BASE_URL,
-#                                             coingecko_headers=COINGECKO_HEADERS
-#                                             )
+#                                            coingecko_headers=COINGECKO_HEADERS)
 #         self.coins_fetcher = CoinGeckoAPI(coingecko_headers=COINGECKO_HEADERS,
-#                                     coingecko_base_url=COINGECKO_BASE_URL
-#                                     )
+#                                           coingecko_base_url=COINGECKO_BASE_URL)
+#         self.db_session = Session()
 #         print("OpenAIAssistantManager initialized successfully.")
 
 #     def retrieve_assistant(self, assistant_id):
@@ -49,6 +53,16 @@
 #             print(f"Using existing thread with ID: {self.thread.id}")
 #         return self.thread
 
+#     def create_and_save_thread(self, user_id):
+#         thread = self.ensure_thread()
+#         db_thread = Thread(
+#             id=thread.id,
+#             user_id=user_id,
+#         )
+#         self.db_session.add(db_thread)
+#         self.db_session.commit()
+#         return db_thread
+
 #     def add_message(self, content, role="user"):
 #         print(f"Adding message to thread. Role: {role}, Content: {content[:50]}...")
 #         thread = self.ensure_thread()
@@ -57,8 +71,27 @@
 #             role=role,
 #             content=content
 #         )
+
+#         db_message = Message(
+#             id=message.id,
+#             thread_id=thread.id,
+#             role='user',
+#             content=content
+#         )
+#         self.db_session.add(db_message)
+#         self.db_session.commit()
+
 #         print(f"Message added successfully. Message ID: {message.id}")
 #         return message
+
+#     def update_message_feedback(self, message_id: str, feedback: bool):
+#         db_message = self.db_session.query(Message).filter_by(id=message_id).first()
+#         if db_message:
+#             db_message.feedback = feedback
+#             self.db_session.commit()
+#             print(f"Updated feedback for message {message_id}")
+#         else:
+#             print(f"Message {message_id} not found in database")
 
 #     def run_assistant(self, assistant_id):
 #         print(f"Running assistant with ID: {assistant_id}")
@@ -92,7 +125,6 @@
 #         while True:
 #             status = self.get_run_status(run_id)
 #             elapsed_time = time.time() - start_time
-            
 #             if status == "completed":
 #                 print(f"Run completed successfully. Total time: {elapsed_time:.2f}s")
 #                 return True
@@ -113,11 +145,9 @@
 #                 return False
 #             else:
 #                 print(f"Unknown status: {status}. Elapsed time: {elapsed_time:.2f}s")
-            
 #             if elapsed_time > timeout:
 #                 print(f"Run timed out after {timeout}s")
 #                 raise TimeoutError("Run did not complete within the specified timeout.")
-            
 #             time.sleep(1)
 
 #     def get_assistant_response(self):
@@ -138,13 +168,10 @@
 #             print(f"Processing tool: {tool.function.name}")
 #             if tool.function.name in ["get_token_data", "get_latest_news", "extract_data", "get_llama_chains"]:
 #                 args = json.loads(tool.function.arguments)
-                
 #                 arg_value = args.get('coin')
 #                 url = args.get('url')
 #                 token_id = args.get('token_id')
-
 #                 print(f'Tool: {tool.function.name}, Argument: {arg_value or url or token_id}')
-
 #                 output = None
 #                 if tool.function.name == 'get_token_data':
 #                     output = self.coins_fetcher.get_token_data(arg_value)
@@ -154,7 +181,6 @@
 #                     output = self.scraper.extract_data(url)
 #                 elif tool.function.name == 'get_llama_chains':
 #                     output = self.defillama.get_llama_chains(token_id)
-
 #                 tool_outputs.append({
 #                     "tool_call_id": tool.id,
 #                     "output": str(output)
@@ -162,20 +188,31 @@
 #                 print(f"Tool output generated. Length: {len(str(output))}")
 #             else:
 #                 print(f"Unknown tool: {tool.function.name}")
-        
 #         print(f"Processed {len(tool_outputs)} tool outputs.")
 #         return tool_outputs
 
-#     def interact_with_assistant(self, assistant_id, user_message):
+#     def generate_penelope_response(self, assistant_id, user_message, user_id):
 #         print(f"Starting interaction with assistant. User message: {user_message[:50]}...")
-#         self.add_message(user_message)
-#         run = self.run_assistant(assistant_id)
         
+#         # Create and save thread if it doesn't exist
+#         if not self.thread:
+#             self.create_and_save_thread(user_id)
+        
+#         # Add user message
+#         self.add_message(user_message, role="user")
+        
+#         run = self.run_assistant(assistant_id)
 #         completion_status = self.wait_for_completion(run.id)
         
 #         if completion_status == True:
 #             print("Run completed. Retrieving final assistant response.")
-#             return self.get_assistant_response()
+#             assistant_response = self.get_assistant_response()
+            
+#             # Save assistant response
+#             if assistant_response:
+#                 self.add_message(assistant_response, role="assistant")
+            
+#             return assistant_response
 #         elif completion_status == "requires_action":
 #             print("Run requires action. Processing tool calls...")
 #             run = self.client.beta.threads.runs.retrieve(thread_id=self.thread.id, run_id=run.id)
@@ -190,7 +227,13 @@
 #                     )
 #                     if self.wait_for_completion(second_run.id):
 #                         print("Second run completed. Retrieving final response.")
-#                         return self.get_assistant_response()
+#                         assistat_response_with_tool_calls = self.get_assistant_response()
+                        
+#                         # Save assistant response
+#                         if assistat_response_with_tool_calls:
+#                             self.add_message(assistat_response_with_tool_calls, role="assistant")
+
+#                         return assistat_response_with_tool_calls
 #                     else:
 #                         print(f"Second run failed or was cancelled.")
 #                 else:
@@ -199,16 +242,91 @@
 #                 print("No tool calls required or `submit_tool_outputs` not found.")
 #         else:
 #             print("Run failed, was cancelled, or ended incomplete.")
-        
 #         return "Failed to get a response from the assistant."
+
+#     def generate_penelope_response_streaming(self, assistant_id, user_message, user_id):
+#         print(f"Starting streaming interaction with assistant. User message: {user_message[:50]}...")
+        
+#         # Create and save thread if it doesn't exist
+#         if not self.thread:
+#             self.create_and_save_thread(user_id)
+
+#         # Add user message
+#         self.add_message(user_message, role="user")
+
+#         run = self.run_assistant(assistant_id)
+        
+#         while True:
+#             completion_status = self.wait_for_completion(run.id, timeout=5)  # Short timeout for frequent checks
+            
+#             if completion_status == True:
+#                 print("Run completed. Retrieving final assistant response.")
+#                 assistant_response = self.get_assistant_response()
+#                 if assistant_response:
+#                     self.add_message(assistant_response, role="assistant")
+#                     yield assistant_response
+#                 break
+            
+#             elif completion_status == "requires_action":
+#                 print("Run requires action. Processing tool calls...")
+#                 run = self.client.beta.threads.runs.retrieve(thread_id=self.thread.id, run_id=run.id)
+                
+#                 if hasattr(run, 'required_action') and hasattr(run.required_action, 'submit_tool_outputs'):
+#                     tool_outputs = self._process_tool_calls(run.required_action.submit_tool_outputs.tool_calls)
+#                     if tool_outputs:
+#                         print("Submitting tool outputs...")
+#                         yield "Processing additional information..."
+#                         run = self.client.beta.threads.runs.submit_tool_outputs(
+#                             thread_id=self.thread.id,
+#                             run_id=run.id,
+#                             tool_outputs=tool_outputs
+#                         )
+#                     else:
+#                         print("No tool outputs to submit.")
+#                         break
+#                 else:
+#                     print("No tool calls required or `submit_tool_outputs` not found.")
+#                     break
+            
+#             elif completion_status is False:
+#                 print("Run failed, was cancelled, or ended incomplete.")
+#                 yield "Failed to get a response from Penelope."
+#                 break
+            
+#             else:
+#                 # If still in progress, yield a waiting message
+#                 yield "Still processing..."
+        
+#         print("\nStreaming response completed.")
 
 #     def reset_thread(self):
 #         print("Resetting thread...")
+#         if self.thread:
+#             # Mark the thread as inactive in the database
+#             db_thread = self.db_session.query(Thread).filter_by(id=self.thread.id).first()
+#             if db_thread:
+#                 db_thread.is_active = False
+#                 self.db_session.commit()
 #         self.thread = None
 #         print("Thread reset complete.")
 
+#     def rollback(self):
+#         print("Rolling back database transaction...")
+#         try:
+#             self.db_session.rollback()
+#             print("Database transaction rolled back successfully.")
+#         except Exception as e:
+#             print(f"Error during rollback: {str(e)}")
+
 # # Initialize the assistant manager
 # api_key = os.getenv("OPENAI_API_KEY")
+# COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
+# COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3"
+# COINGECKO_HEADERS = {
+#     "accept": "application/json",
+#     # "x-cg-pro-api-key": COINGECKO_API_KEY,
+# }
+
 # penelope_manager = OpenAIAssistantManager(api_key, COINGECKO_HEADERS, COINGECKO_BASE_URL)
 
 
@@ -216,14 +334,12 @@
 
 
 
-
-# ___________________ DB INTEGRATION _____________________________
-
 import os
 import json
+import uuid
 import time
 from openai import OpenAI
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Optional, Generator
 from datetime import datetime
 from sqlalchemy.orm import Session
 from app.services.scrapper.scrapper import Scraper
@@ -233,69 +349,157 @@ from app.penelope.vector_store_module.vector_store import VectorStoreManager
 from app.services.defillama.defillama import LlamaChainFetcher
 from app.penelope.assistant_module.assistant import AssistantManager
 from config import Message, Thread, Session
-
+from app.services.perplexity.perplexity import PerplexityAPI
+from app.services.openai_chat.openai import ChatGPTAPI
+from app.services.gemini.gemini import GeminiAPI
 
 class OpenAIAssistantManager:
-    def __init__(self, api_key, COINGECKO_HEADERS, COINGECKO_BASE_URL):
-        print("Initializing OpenAIAssistantManager...")
-        self.client = OpenAI(api_key=api_key)
+    def __init__(self, verbose: bool = True):
+        self.verbose = verbose
+        self._log("Initializing OpenAIAssistantManager...")
+
+        # Initialize environment variables
+        self.api_key = os.getenv("OPENAI_API_KEY")
+        self.coingecko_api_key = os.getenv("COINGECKO_API_KEY")
+        self.coingecko_base_url = "https://api.coingecko.com/api/v3"
+
+        if not self.api_key or not self.coingecko_api_key:
+            raise ValueError("OPENAI_API_KEY and COINGECKO_API_KEY must be set in the environment.")
+
+        self.coingecko_headers = {
+            "accept": "application/json",
+            "x-cg-pro-api-key": self.coingecko_api_key,
+        }
+
+        self.client = OpenAI(api_key=self.api_key)
         self.thread = None
-        self.vector_store = VectorStoreManager(api_key=api_key)
+        self.queue = []
+        self.vector_store = VectorStoreManager(api_key=self.api_key)
         self.scraper = Scraper()
-        self.assistant_manager = AssistantManager(api_key=api_key)
+        self.system_prompt = "You are Penelope, an exceptionally polite and intelligent AI Assistant. You specialize in creating detailed analyses, writing concise summaries, conducting thorough information searches, and retrieving real-time data efficiently."
+        self.assistant_manager = AssistantManager(api_key=self.api_key)
+        self.gemini = GeminiAPI(verbose=self.verbose)
+        self.perplexity = PerplexityAPI(verbose=self.verbose)
+        self.chatgpt = ChatGPTAPI(verbose=self.verbose)
         self.news_fetcher = CoinNewsFetcher()
-        self.defillama = LlamaChainFetcher(coingecko_base_url=COINGECKO_BASE_URL,
-                                           coingecko_headers=COINGECKO_HEADERS)
-        self.coins_fetcher = CoinGeckoAPI(coingecko_headers=COINGECKO_HEADERS,
-                                          coingecko_base_url=COINGECKO_BASE_URL)
+        self.defillama = LlamaChainFetcher(coingecko_base_url=self.coingecko_base_url, coingecko_headers=self.coingecko_headers)
+        self.coins_fetcher = CoinGeckoAPI(coingecko_headers=self.coingecko_headers, coingecko_base_url=self.coingecko_base_url)
         self.db_session = Session()
-        print("OpenAIAssistantManager initialized successfully.")
+
+        self._log("OpenAIAssistantManager initialized successfully.")
+
+    def _log(self, message: str):
+        if self.verbose:
+            print(message)
 
     def retrieve_assistant(self, assistant_id):
-        print(f"Retrieving assistant with ID: {assistant_id}")
+        self._log(f"Retrieving assistant with ID: {assistant_id}")
         assistant = self.client.beta.assistants.retrieve(assistant_id=assistant_id)
-        print(f"Assistant retrieved: {assistant.name}")
+        self._log(f"Assistant retrieved: {assistant.name}")
         return assistant
 
     def ensure_thread(self):
         if not self.thread:
-            print("Creating new thread...")
+            self._log("Creating new thread...")
             self.thread = self.client.beta.threads.create()
-            print(f"New thread created with ID: {self.thread.id}")
+            self._log(f"New thread created with ID: {self.thread.id}")
         else:
-            print(f"Using existing thread with ID: {self.thread.id}")
+            self._log(f"Using existing thread with ID: {self.thread.id}")
         return self.thread
 
     def create_and_save_thread(self, user_id):
         thread = self.ensure_thread()
-        db_thread = Thread(
-            id=thread.id,
-            user_id=user_id,
-        )
+        db_thread = Thread(id=thread.id, user_id=user_id)
         self.db_session.add(db_thread)
         self.db_session.commit()
         return db_thread
+    
+    def upload_thread(self, file_ids):
+        self.client.beta.threads.update(
+            thread_id=self.thread.id,
+            tool_resources={"code_interpreter": {"file_ids": file_ids}}
+        )
+        self._log(message="Files uploaded successfully")
+
+    def handle_file_uploads(self, files, thread_id: str) -> List[str]:
+        """
+        Handle file uploads for the OpenAI Assistant API.
+
+        Args:
+        client (OpenAI): The OpenAI client instance.
+        files (List): List of file objects to upload.
+        thread_id (str): The ID of the thread to associate the files with.
+
+        Returns:
+        List[str]: List of successfully uploaded file IDs.
+        """
+        supported_extensions = [
+            'c', 'cs', 'cpp', 'doc', 'docx', 'html', 'java', 'json', 'md', 'pdf', 'php', 
+            'pptx', 'py', 'rb', 'tex', 'txt', 'css', 'js', 'sh', 'ts', 'csv', 'jpeg', 
+            'jpg', 'gif', 'png', 'tar', 'xlsx', 'xml', 'zip'
+        ]
+        supported_mime_types = {
+            'text/x-c', 'text/x-csharp', 'text/x-c++', 'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'text/html', 'text/x-java', 'application/json', 'text/markdown',
+            'application/pdf', 'text/x-php',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'text/x-python', 'text/x-script.python', 'text/x-ruby', 'text/x-tex',
+            'text/plain', 'text/css', 'text/javascript', 'application/x-sh',
+            'application/typescript', 'application/csv', 'image/jpeg', 'image/gif',
+            'image/png', 'application/x-tar',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/xml', 'text/xml', 'application/zip'
+        }
+
+        files_ids = []
+
+        for file in files:
+            try:
+                file_extension = file.filename.split('.')[-1].lower()
+                if file_extension not in supported_extensions:
+                    self._log(f"Unsupported file type: {file.filename}")
+                    continue
+                
+                if hasattr(file, 'content_type') and file.content_type not in supported_mime_types:
+                    self._log(f"Unsupported MIME type: {file.content_type}")
+                    continue
+
+                file_response = self.client.files.create(file=file.stream, purpose="assistants")
+                files_ids.append(file_response.id)
+                print(f"File uploaded successfully: {file.filename}")
+            except Exception as e:
+                print(f"Error uploading file {file.filename}: {str(e)}")
+
+        if files_ids:
+            try:
+                self.client.beta.threads.update(
+                    thread_id=thread_id,
+                    tool_resources={"code_interpreter": {"file_ids": files_ids}}
+                )
+                self._log(f"Files associated with thread {thread_id}")
+            except Exception as e:
+                self._log(f"Error associating files with thread: {str(e)}")
+
+        return files_ids
 
     def add_message(self, content, role="user"):
-        print(f"Adding message to thread. Role: {role}, Content: {content[:50]}...")
+        self._log(f"Adding message to thread. Role: {role}, Content: {content[:50]}...")
         thread = self.ensure_thread()
         message = self.client.beta.threads.messages.create(
             thread_id=thread.id,
             role=role,
             content=content
         )
-        
-        # Save message to database
         db_message = Message(
             id=message.id,
             thread_id=thread.id,
-            role=role,
+            role='user',
             content=content
         )
         self.db_session.add(db_message)
         self.db_session.commit()
-
-        print(f"Message added successfully. Message ID: {message.id}")
+        self._log(f"Message added successfully. Message ID: {message.id}")
         return message
 
     def update_message_feedback(self, message_id: str, feedback: bool):
@@ -303,18 +507,18 @@ class OpenAIAssistantManager:
         if db_message:
             db_message.feedback = feedback
             self.db_session.commit()
-            print(f"Updated feedback for message {message_id}")
+            self._log(f"Updated feedback for message {message_id}")
         else:
-            print(f"Message {message_id} not found in database")
+            self._log(f"Message {message_id} not found in database")
 
     def run_assistant(self, assistant_id):
-        print(f"Running assistant with ID: {assistant_id}")
+        self._log(f"Running assistant with ID: {assistant_id}")
         thread = self.ensure_thread()
         run = self.client.beta.threads.runs.create(
             thread_id=thread.id,
             assistant_id=assistant_id
         )
-        print(f"Assistant run created. Run ID: {run.id}")
+        self._log(f"Assistant run created. Run ID: {run.id}")
         return run
 
     def get_run_status(self, run_id):
@@ -323,69 +527,92 @@ class OpenAIAssistantManager:
             thread_id=thread.id,
             run_id=run_id
         )
-        print(f"Run status for Run ID {run_id}: {run.status}")
+        self._log(f"Run status for Run ID {run_id}: {run.status}")
         return run.status
 
     def get_messages(self):
-        print("Retrieving messages from thread...")
+        self._log("Retrieving messages from thread...")
         thread = self.ensure_thread()
         messages = self.client.beta.threads.messages.list(thread_id=thread.id)
-        print(f"Retrieved {len(messages.data)} messages.")
+        self._log(f"Retrieved {len(messages.data)} messages.")
         return messages
 
     def wait_for_completion(self, run_id, timeout=300):
-        print(f"Waiting for run completion. Run ID: {run_id}, Timeout: {timeout}s")
+        self._log(f"Waiting for run completion. Run ID: {run_id}, Timeout: {timeout}s")
         start_time = time.time()
         while True:
             status = self.get_run_status(run_id)
             elapsed_time = time.time() - start_time
             if status == "completed":
-                print(f"Run completed successfully. Total time: {elapsed_time:.2f}s")
+                self._log(f"Run completed successfully. Total time: {elapsed_time:.2f}s")
                 return True
             elif status == "requires_action":
-                print(f"Run requires action. Elapsed time: {elapsed_time:.2f}s")
+                self._log(f"Run requires action. Elapsed time: {elapsed_time:.2f}s")
                 return "requires_action"
             elif status in ["failed", "cancelled", "expired"]:
-                print(f"Run ended with status: {status}. Total time: {elapsed_time:.2f}s")
+                self._log(f"Run ended with status: {status}. Total time: {elapsed_time:.2f}s")
                 return False
             elif status == "cancelling":
-                print(f"Run is being cancelled. Elapsed time: {elapsed_time:.2f}s")
+                self._log(f"Run is being cancelled. Elapsed time: {elapsed_time:.2f}s")
             elif status == "in_progress":
-                print(f"Run is in progress. Elapsed time: {elapsed_time:.2f}s")
+                self._log(f"Run is in progress. Elapsed time: {elapsed_time:.2f}s")
             elif status == "queued":
-                print(f"Run is queued. Elapsed time: {elapsed_time:.2f}s")
+                self._log(f"Run is queued. Elapsed time: {elapsed_time:.2f}s")
             elif status == "incomplete":
-                print(f"Run ended incomplete. Total time: {elapsed_time:.2f}s")
+                self._log(f"Run ended incomplete. Total time: {elapsed_time:.2f}s")
                 return False
             else:
-                print(f"Unknown status: {status}. Elapsed time: {elapsed_time:.2f}s")
+                self._log(f"Unknown status: {status}. Elapsed time: {elapsed_time:.2f}s")
+
             if elapsed_time > timeout:
-                print(f"Run timed out after {timeout}s")
+                self._log(f"Run timed out after {timeout}s")
                 raise TimeoutError("Run did not complete within the specified timeout.")
             time.sleep(1)
 
     def get_assistant_response(self):
-        print("Retrieving assistant's response...")
+        self._log("Retrieving assistant's response...")
         messages = self.get_messages()
         for message in messages.data:
             if message.role == "assistant":
                 response = message.content[0].text.value
-                print(f"Assistant response found: {response[:50]}...")
+                self._log(f"Assistant response found: {response[:50]}...")
                 return response
-        print("No assistant response found.")
+        self._log("No assistant response found.")
         return None
+    
+    def start_new_chat(self, user_id: str):
+        """
+        Start a new chat by resetting the current thread and creating a new one.
+
+        Args:
+        user_id (str): The ID of the user starting the new chat.
+
+        Returns:
+        Thread: The newly created thread object.
+        """
+        print(f"Starting a new chat for user {user_id}")
+
+        # Reset the current thread if it exists
+        self.reset_thread()
+
+        # Create and save a new thread
+        new_thread = self.create_and_save_thread(user_id)
+
+        print(f"New chat started with thread ID: {new_thread.id}")
+
+        return new_thread
 
     def _process_tool_calls(self, tool_calls: List[Any]) -> List[Dict[str, str]]:
-        print(f"Processing {len(tool_calls)} tool calls...")
+        self._log(f"Processing {len(tool_calls)} tool calls...")
         tool_outputs = []
         for tool in tool_calls:
-            print(f"Processing tool: {tool.function.name}")
+            self._log(f"Processing tool: {tool.function.name}")
             if tool.function.name in ["get_token_data", "get_latest_news", "extract_data", "get_llama_chains"]:
                 args = json.loads(tool.function.arguments)
                 arg_value = args.get('coin')
                 url = args.get('url')
                 token_id = args.get('token_id')
-                print(f'Tool: {tool.function.name}, Argument: {arg_value or url or token_id}')
+                self._log(f'Tool: {tool.function.name}, Argument: {arg_value or url or token_id}')
                 output = None
                 if tool.function.name == 'get_token_data':
                     output = self.coins_fetcher.get_token_data(arg_value)
@@ -399,98 +626,194 @@ class OpenAIAssistantManager:
                     "tool_call_id": tool.id,
                     "output": str(output)
                 })
-                print(f"Tool output generated. Length: {len(str(output))}")
+                self._log(f"Tool output generated. Length: {len(str(output))}")
             else:
-                print(f"Unknown tool: {tool.function.name}")
-        print(f"Processed {len(tool_outputs)} tool outputs.")
+                self._log(f"Unknown tool: {tool.function.name}")
+        self._log(f"Processed {len(tool_outputs)} tool outputs.")
         return tool_outputs
 
-    def interact_with_assistant(self, assistant_id, user_message, user_id):
-        print(f"Starting interaction with assistant. User message: {user_message[:50]}...")
-        
-        # Create and save thread if it doesn't exist
+    def generate_penelope_response(self, assistant_id, user_message, user_id):
+        self._log(f"Starting interaction with assistant. User message: {user_message[:50]}...")
         if not self.thread:
             self.create_and_save_thread(user_id)
-        
-        # Add user message
         self.add_message(user_message, role="user")
-        
         run = self.run_assistant(assistant_id)
         completion_status = self.wait_for_completion(run.id)
-        
         if completion_status == True:
-            print("Run completed. Retrieving final assistant response.")
+            self._log("Run completed. Retrieving final assistant response.")
             assistant_response = self.get_assistant_response()
-            
-            # Save assistant response
             if assistant_response:
                 self.add_message(assistant_response, role="assistant")
-            
             return assistant_response
         elif completion_status == "requires_action":
-            print("Run requires action. Processing tool calls...")
+            self._log("Run requires action. Processing tool calls...")
             run = self.client.beta.threads.runs.retrieve(thread_id=self.thread.id, run_id=run.id)
             if hasattr(run, 'required_action') and hasattr(run.required_action, 'submit_tool_outputs'):
                 tool_outputs = self._process_tool_calls(run.required_action.submit_tool_outputs.tool_calls)
                 if tool_outputs:
-                    print("Submitting tool outputs...")
+                    self._log("Submitting tool outputs...")
                     second_run = self.client.beta.threads.runs.submit_tool_outputs(
                         thread_id=self.thread.id,
                         run_id=run.id,
                         tool_outputs=tool_outputs
                     )
                     if self.wait_for_completion(second_run.id):
-                        print("Second run completed. Retrieving final response.")
-                        assistat_response_with_tool_calls = self.get_assistant_response()
-                        
-                        # Save assistant response
-                        if assistat_response_with_tool_calls:
-                            self.add_message(assistat_response_with_tool_calls, role="assistant")
-
-                        return assistat_response_with_tool_calls
+                        self._log("Second run completed. Retrieving final response.")
+                        assistant_response_with_tool_calls = self.get_assistant_response()
+                        if assistant_response_with_tool_calls:
+                            self.add_message(assistant_response_with_tool_calls, role="assistant")
+                        return assistant_response_with_tool_calls
                     else:
-                        print(f"Second run failed or was cancelled.")
+                        self._log(f"Second run failed or was cancelled.")
                 else:
-                    print("No tool outputs to submit.")
+                    self._log("No tool outputs to submit.")
             else:
-                print("No tool calls required or `submit_tool_outputs` not found.")
+                self._log("No tool calls required or `submit_tool_outputs` not found.")
         else:
-            print("Run failed, was cancelled, or ended incomplete.")
+            self._log("Run failed, was cancelled, or ended incomplete.")
         return "Failed to get a response from the assistant."
 
+    def generate_penelope_response_streaming(self, assistant_id, user_message, user_id, files):
+        self._log(f"Starting streaming interaction with assistant. User message: {user_message[:50]}...")
+       
+        if not self.thread:
+            self.create_and_save_thread(user_id)
+
+        if files:
+            self.handle_file_uploads(files=files,
+                                     thread_id=self.thread.id
+                                     )
+        
+        self.add_message(user_message, role="user")
+        run = self.run_assistant(assistant_id)
+       
+        while True:
+            completion_status = self.wait_for_completion(run.id, timeout=5)
+            if completion_status == True:
+                self._log("Run completed. Retrieving final assistant response.")
+                assistant_response = self.get_assistant_response()
+                if assistant_response:
+                    self.add_message(assistant_response, role="assistant")
+                yield assistant_response
+                break
+            elif completion_status == "requires_action":
+                self._log("Run requires action. Processing tool calls...")
+                run = self.client.beta.threads.runs.retrieve(thread_id=self.thread.id, run_id=run.id)
+                if hasattr(run, 'required_action') and hasattr(run.required_action, 'submit_tool_outputs'):
+                    tool_outputs = self._process_tool_calls(run.required_action.submit_tool_outputs.tool_calls)
+                    if tool_outputs:
+                        self._log("Submitting tool outputs...")
+                        yield "Processing additional information..."
+                        run = self.client.beta.threads.runs.submit_tool_outputs(
+                            thread_id=self.thread.id,
+                            run_id=run.id,
+                            tool_outputs=tool_outputs
+                        )
+                    else:
+                        self._log("No tool outputs to submit.")
+                        break
+                else:
+                    self._log("No tool calls required or `submit_tool_outputs` not found.")
+                    break
+            elif completion_status is False:
+                self._log("Run failed, was cancelled, or ended incomplete.")
+                yield "Failed to get a response from Penelope."
+                break
+            else:
+                yield "Still processing..."
+        self._log("\nStreaming response completed.")
+
+    def generate_multi_ai_response(self, user_prompt: str, user_id: str, system_prompt: Optional[str] = None) -> Generator[Dict[str, str], None, None]:
+        """
+        Generate responses from multiple AI services: Gemini, ChatGPT, and Perplexity.
+        Save the responses to the database.
+
+        Args:
+        user_prompt (str): The main input prompt from the user.
+        system_prompt (Optional[str]): An optional system prompt to set the context.
+        user_id (str): The ID of the user making the request.
+
+        Yields:
+        Dict[str, str]: Chunks of responses from each AI service or error messages.
+        """
+        if self.verbose:
+            print("Generating responses from multiple AI services...")
+
+        # Initialize response accumulators
+        responses = {
+            "gemini": "",
+            "openai": "",
+            "perplexity": ""
+        }
+
+        # Gemini API
+        gemini_generator = self.gemini.generate_response(user_prompt, system_prompt)
+        
+        # ChatGPT API
+        chatgpt_generator = self.chatgpt.generate_response(user_prompt, system_prompt)
+        
+        # Perplexity API
+        perplexity_generator = self.perplexity.generate_response("mistral-7b-instruct", user_prompt, system_prompt)
+
+        # Combine generators
+        generators = [
+            ("gemini", gemini_generator),
+            ("openai", chatgpt_generator),
+            ("perplexity", perplexity_generator)
+        ]
+
+        # Iterate through all generators
+        while generators:
+            for service, gen in generators[:]:
+                try:
+                    chunk = next(gen)
+                    if chunk:
+                        response = chunk.get(f"{service}_response", chunk.get("error", ""))
+                        responses[service] += response
+                        yield {service: response}
+                except StopIteration:
+                    generators.remove((service, gen))
+                except Exception as e:
+                    error_message = f"Error: {str(e)}"
+                    responses[service] += error_message
+                    yield {service: error_message}
+                    generators.remove((service, gen))
+
+        # Save the accumulated responses to the database
+        for service, response in responses.items():
+            if response:
+                db_message = Message(
+                    id=str(uuid.uuid4()),
+                    thread_id=self.thread.id,
+                    role=f'{service}_assistant',
+                    content=response,
+                )
+                self.db_session.add(db_message)
+
+        # Commit all messages at once
+        self.db_session.commit()
+
+        if self.verbose:
+            print("All AI services have completed their responses and saved to the database.")
+
     def reset_thread(self):
-        print("Resetting thread...")
+        self._log("Resetting thread...")
         if self.thread:
-            # Mark the thread as inactive in the database
             db_thread = self.db_session.query(Thread).filter_by(id=self.thread.id).first()
             if db_thread:
                 db_thread.is_active = False
                 self.db_session.commit()
-        self.thread = None
-        print("Thread reset complete.")
+            self.thread = None
+        self._log("Thread reset complete.")
 
     def rollback(self):
-        print("Rolling back database transaction...")
+        self._log("Rolling back database transaction...")
         try:
             self.db_session.rollback()
-            print("Database transaction rolled back successfully.")
+            self._log("Database transaction rolled back successfully.")
         except Exception as e:
-            print(f"Error during rollback: {str(e)}")
-
-# Initialize the assistant manager
-api_key = os.getenv("OPENAI_API_KEY")
-COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
-COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3"
-COINGECKO_HEADERS = {
-    "accept": "application/json",
-    "x-cg-pro-api-key": COINGECKO_API_KEY,
-}
-
-penelope_manager = OpenAIAssistantManager(api_key, COINGECKO_HEADERS, COINGECKO_BASE_URL)
+            self._log(f"Error during rollback: {str(e)}")
 
 
 
-
-
-
-
+penelope_manager = OpenAIAssistantManager(verbose=False)

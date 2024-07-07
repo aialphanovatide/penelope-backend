@@ -1,9 +1,9 @@
 import os
-from flask import Blueprint, request, jsonify, render_template_string
-from app.penelope.penelope import penelope_manager
-from werkzeug.exceptions import BadRequest
-from config import Session
+import json
 from http import HTTPStatus
+from werkzeug.exceptions import BadRequest
+from app.penelope.penelope import penelope_manager
+from flask import Blueprint, request, jsonify, render_template_string, Response, stream_with_context
 
 penelope = Blueprint('penelope', __name__)
 
@@ -12,70 +12,99 @@ assistant_id = os.getenv('ASSISTANT_ID')
 @penelope.route('/inference', methods=['POST'])
 def penelope_inference():
     try:
-        user_input = request.get_json()
+        data = request.json
+        user_prompt = data.get('prompt')
+        behaviour = data.get('behaviour')
+        user_id = data.get('user_id')
+        files = request.files.getlist('files')
 
-        if not user_input or 'input' not in user_input:
-            raise BadRequest("No input data provided or 'input' field is missing")
+        if not all([user_prompt, behaviour, user_id]):
+            raise BadRequest("Missing parameters")
 
-        user_message = user_input.get('input')
-        if not isinstance(user_message, str) or not user_message.strip():
-            raise BadRequest("Input must be a non-empty string")
+        def generate():
+            try:
+                if behaviour == 'multi-model':
+                    # Generate response from Penelope
+                    for response in penelope_manager.generate_penelope_response_streaming(assistant_id, user_prompt, user_id, files):
+                        yield f"data: {json.dumps({'type': 'penelope', 'content': response})}\n\n"
+                    
+                    # Generate responses from multiple AI services
+                    for response in penelope_manager.generate_multi_ai_response(user_prompt, user_id=user_id):
+                        for service, content in response.items():
+                            yield f"data: {json.dumps({'type': 'multi_ai', 'service': service, 'content': content})}\n\n"
 
-        user_id = user_input.get('user_id', 1)  # Default to 1 if not provided
+                else:
+                    for response in penelope_manager.generate_penelope_response_streaming(assistant_id, user_prompt, user_id):
+                        yield f"data: {json.dumps({'type': 'penelope', 'content': response})}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+            finally:
+                yield "data: [DONE]\n\n"
 
-        output = penelope_manager.interact_with_assistant(
-            user_message=user_message,
-            assistant_id=assistant_id,
-            user_id=user_id
-        )
-
-        if output:
-            return jsonify({
-                "success": True,
-                "response": output
-            }), HTTPStatus.OK
-        else:
-            return jsonify({
-                "success": False,
-                "response": None,
-                "error": "No response generated"
-            }), HTTPStatus.NO_CONTENT
+        return Response(stream_with_context(generate()), content_type='text/event-stream')
 
     except BadRequest as br:
-        return jsonify({
-            "success": False,
-            "error": str(br)
-        }), HTTPStatus.BAD_REQUEST
-
+        penelope_manager.rollback()
+        return jsonify({"error": str(br)}), HTTPStatus.BAD_REQUEST
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": f"An internal server error occurred: {str(e)}"
-        }), HTTPStatus.INTERNAL_SERVER_ERROR
-    
+        penelope_manager.rollback()
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
-@penelope.route('/update_feedback/<string:message_id>', methods=['POST'])
-def update_feedback(message_id):
+@penelope.route('/update_feedback', methods=['POST'])
+def update_feedback():
+    """
+    Route to update feedback for a specific message.
+
+    This endpoint expects a JSON payload with 'message_id' (str) and 'feedback' (bool).
+    It updates the feedback status of the given message and returns a success message upon completion.
+
+    Request JSON format:
+    {
+        "message_id": "some_message_id",
+        "feedback": true/false
+    }
+
+    Responses:
+        200: Feedback updated successfully.
+        400: Bad request with an explanation of the error.
+        500: Internal server error.
+    """
+        
     try:
-        data = request.get_json()
+        data = request.json
+        message_id = data.get('message_id')
         feedback = data.get('feedback')
 
-        # Validate the input
-        if feedback is None or not isinstance(feedback, bool):
-            return jsonify({"error": "Invalid feedback value. Must be a boolean."}), HTTPStatus.OK
+        if message_id is None or feedback is None:
+            raise BadRequest("Missing message_id or feedback")
 
-        # Update the feedback
+        if not isinstance(feedback, bool):
+            raise BadRequest("Feedback must be a boolean value")
+
         penelope_manager.update_message_feedback(message_id, feedback)
-        return jsonify({"message": f"Feedback updated for message {message_id}"}), 200
 
+        return jsonify({"status": "success", "message": f"Feedback updated for message {message_id}"}), 200
+
+    except BadRequest as br:
+        penelope_manager.rollback()
+        return jsonify({"error": str(br)}), 400
     except Exception as e:
-        return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
-    
+        penelope_manager.rollback()  # Rollback the transaction in case of an error
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+
 
 
 @penelope.route('/', methods=['GET'])
 def welcome():
+    """
+    Welcome route to render a simple welcome message.
+
+    This endpoint does not take any parameters and returns a welcome HTML page.
+
+    Response:
+        200: Welcome page rendered successfully.
+    """
     return render_template_string("""
                             <!DOCTYPE html>
                             <html lang="en">
