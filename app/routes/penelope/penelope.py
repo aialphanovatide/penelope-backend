@@ -1,7 +1,9 @@
 import os
 import json
+from datetime import datetime
 from http import HTTPStatus
 from werkzeug.exceptions import BadRequest
+from config import User, Session
 from app.penelope.penelope import penelope_manager
 from flask import Blueprint, request, jsonify, render_template_string, Response, stream_with_context
 
@@ -12,34 +14,36 @@ assistant_id = os.getenv('ASSISTANT_ID')
 @penelope.route('/inference', methods=['POST'])
 def penelope_inference():
     try:
-        data = request.json
-        user_prompt = data.get('prompt')
-        behaviour = data.get('behaviour')
-        user_id = data.get('user_id')
+        user_prompt = request.form.get('prompt')
+        behaviour = request.form.get('behaviour')
+        user_id = request.form.get('user_id')
         files = request.files.getlist('files')
 
         if not all([user_prompt, behaviour, user_id]):
             raise BadRequest("Missing parameters")
+        
+        user_id = str(user_id)
 
         def generate():
             try:
                 if behaviour == 'multi-model':
                     # Generate response from Penelope
-                    for response in penelope_manager.generate_penelope_response_streaming(assistant_id, user_prompt, user_id, files):
-                        yield f"data: {json.dumps({'type': 'penelope', 'content': response})}\n\n"
+                    for response in penelope_manager.generate_penelope_response_streaming(assistant_id, user_prompt, user_id):
+                        yield f"data: {json.dumps({'type': 'multi_ai', 'service': 'penelope', 'content': response['penelope'], 'id': response['id']})}\n\n"
                     
                     # Generate responses from multiple AI services
-                    for response in penelope_manager.generate_multi_ai_response(user_prompt, user_id=user_id):
+                    for response in penelope_manager.generate_multi_ai_response(user_prompt):
                         for service, content in response.items():
-                            yield f"data: {json.dumps({'type': 'multi_ai', 'service': service, 'content': content})}\n\n"
+                            if service != 'id':
+                                yield f"data: {json.dumps({'type': 'multi_ai', 'service': service, 'content': content, 'id': response['id']})}\n\n"
 
                 else:
-                    for response in penelope_manager.generate_penelope_response_streaming(assistant_id, user_prompt, user_id):
-                        yield f"data: {json.dumps({'type': 'penelope', 'content': response})}\n\n"
+                    for response in penelope_manager.generate_penelope_response_streaming(assistant_id, user_prompt, user_id, files):
+                        yield f"data: {json.dumps({'type': 'multi_ai', 'service': 'penelope', 'content': response['penelope'], 'id': response['id']})}\n\n"
             except Exception as e:
                 yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
-            finally:
-                yield "data: [DONE]\n\n"
+
+    
 
         return Response(stream_with_context(generate()), content_type='text/event-stream')
 
@@ -93,6 +97,44 @@ def update_feedback():
         penelope_manager.rollback()  # Rollback the transaction in case of an error
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
+
+@penelope.route('/register', methods=['POST'])
+def register_user():
+    data = request.json
+    
+    required_fields = ("id", "username", "email")
+    if not all(k in data for k in required_fields):
+        return jsonify({"error": "Missing required fields"}), HTTPStatus.BAD_REQUEST
+    
+    with Session() as session:
+        try:
+            existing_user = session.query(User).filter_by(email=data["email"]).first()
+            if existing_user:
+                return existing_user.as_dict(), HTTPStatus.OK
+            
+            # Create a new user
+            new_user = User(
+                id=data["id"], 
+                username=data['username'],
+                email=data['email'],
+                picture=data["picture"],
+                password_hash='google signin', 
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+                is_active=True
+            )
+            
+            session.add(new_user)
+            session.commit()
+        
+            # Return the new user's information (excluding password)
+            return jsonify({
+                "message": "User registered successfully",
+                "user": new_user.as_dict()
+            }), HTTPStatus.CREATED
+
+        except Exception as e:
+            return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 @penelope.route('/', methods=['GET'])

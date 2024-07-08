@@ -14,9 +14,9 @@ class PerplexityAPI:
 
     def generate_response(
         self,
-        model: str,
         user_prompt: str,
         system_prompt: Optional[str] = None,
+        model: str = "mistral-7b-instruct",
     ) -> Generator[Dict[str, str], None, None]:
         """
         Make a streaming request to the Perplexity API.

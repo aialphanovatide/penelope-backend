@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
@@ -15,9 +15,10 @@ class Config:
 class User(Base):
     __tablename__ = 'users'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(String(255), primary_key=True)
     username = Column(String(50), unique=True, nullable=False)
     email = Column(String(120), unique=True, nullable=False)
+    picture = Column(String)
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.now())
     updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())
@@ -26,13 +27,17 @@ class User(Base):
     threads = relationship('Thread', back_populates='user', cascade="all, delete-orphan")
 
     def as_dict(self):
-        return {column.name: getattr(self, column.name) for column in self.__table__.columns} 
-
+            return {
+                column.name: getattr(self, column.name)
+                for column in self.__table__.columns
+                if column.name != 'password_hash'
+            }
+    
 class Thread(Base):
     __tablename__ = 'threads'
 
     id = Column(String(32), primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_id = Column(String(255), ForeignKey('users.id'), nullable=False)
     created_at = Column(DateTime, default=datetime.now())
     updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())
 
@@ -45,7 +50,7 @@ class Thread(Base):
 class Message(Base):
     __tablename__ = 'messages'
 
-    id = Column(String(32), primary_key=True)
+    id = Column(String(40), primary_key=True)
     thread_id = Column(String(32), ForeignKey('threads.id'), nullable=False)
     role = Column(String(50), nullable=False)  # 'user', 'assistant', or 'system'
     content = Column(Text, nullable=False)
@@ -89,15 +94,16 @@ Session = sessionmaker(bind=engine)
 Base.metadata.create_all(engine)
 
 
-with Session() as session:
-    test_user = session.query(User).filter_by(username="testUser").first()
-    if not test_user:
-        test_user = User(
-            username = "testUser",
-            email = "daviddflix@gmail.com",
-            password_hash = "admin123"
-        )
-        session.add(test_user)
-        session.commit()
-        print('--- Test User Created ---')
-    print('- Test user already exist -')
+# with Session() as session:
+#     test_user = session.query(User).filter_by(username="testUser").first()
+#     if not test_user:
+#         test_user = User(
+#             id='107742922884470008787',
+#             username = "testUser",
+#             email = "daviddflix@gmail.com",
+#             password_hash='google signin'
+#         )
+#         session.add(test_user)
+#         session.commit()
+#         print('--- Test User Created ---')
+#     print('- Test user already exist -')

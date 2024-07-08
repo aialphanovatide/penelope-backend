@@ -5,6 +5,8 @@ from typing import List, Dict, Optional, Set
 from difflib import SequenceMatcher
 
 COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
+NEWS_BOT_V2_URL = os.getenv("NEWS_BOT_V2_URL")
+AI_ALPHA_MAIN_SERVER_URL = os.getenv("AI_ALPHA_MAIN_SERVER_URL")
 
 COINGECKO_BASE_URL = 'https://pro-api.coingecko.com/api/v3'
 coingecko_headers = {
@@ -121,7 +123,7 @@ class CoinNewsFetcher:
             Returns:
                 List[Dict] or None: A list of bots in JSON format if successful, None otherwise.
             """
-            url = "https://zztc5v98-5001.uks1.devtunnels.ms/bots"
+            url = f"{NEWS_BOT_V2_URL}/bots"
             headers = {"accept": "application/json"}
 
             try:
@@ -155,7 +157,7 @@ class CoinNewsFetcher:
                 continue
 
             for bot_id in bot_ids:
-                url = f"https://zztc5v98-5001.uks1.devtunnels.ms/get_articles?bot_id={bot_id}&limit={limit}"
+                url = f"{NEWS_BOT_V2_URL}/get_articles?bot_id={bot_id}&limit={limit}"
 
                 try:
                     response = requests.get(url)
