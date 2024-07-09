@@ -83,9 +83,6 @@ def update_feedback():
         if message_id is None or feedback is None:
             raise BadRequest("Missing message_id or feedback")
 
-        if not isinstance(feedback, bool):
-            raise BadRequest("Feedback must be a boolean value")
-
         penelope_manager.update_message_feedback(message_id, feedback)
 
         return jsonify({"status": "success", "message": f"Feedback updated for message {message_id}"}), 200
@@ -136,6 +133,24 @@ def register_user():
         except Exception as e:
             return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), HTTPStatus.INTERNAL_SERVER_ERROR
 
+
+@penelope.route('/start_new_chat', methods=['POST'])
+def start_new_chat():
+    data = request.json
+    user_id = data.get('user_id')
+    
+    if not user_id:
+        return jsonify({'error': 'User ID is required'}), 400
+    
+    try:
+        new_thread = penelope_manager.start_new_chat(user_id)
+        return jsonify({
+            'message': 'New chat started successfully',
+            'thread_id': new_thread.id
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
 
 @penelope.route('/', methods=['GET'])
 def welcome():

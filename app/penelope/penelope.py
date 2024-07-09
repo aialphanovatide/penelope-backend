@@ -5,7 +5,7 @@ import time
 from openai import OpenAI
 from openai.types.beta.assistant_stream_event import (
    ThreadRunRequiresAction, ThreadRunCompleted, ThreadMessageDelta, ThreadRunFailed,
-   ThreadRunCreated, ThreadRunInProgress, ThreadRunCancelled 
+   ThreadRunCreated, ThreadRunInProgress 
 )
 from typing import List, Any, Dict, Optional, Generator
 from datetime import datetime
@@ -100,13 +100,6 @@ class OpenAIAssistantManager:
         self.db_session.add(db_thread)
         self.db_session.commit()
         return db_thread
-    
-    def upload_thread(self, file_ids):
-        self.client.beta.threads.update(
-            thread_id=self.thread.id,
-            tool_resources={"code_interpreter": {"file_ids": file_ids}}
-        )
-        self._log(message="Files uploaded successfully")
 
     def handle_file_uploads(self, files, thread_id: str) -> List[str]:
         """
@@ -279,7 +272,7 @@ class OpenAIAssistantManager:
         Returns:
         Thread: The newly created thread object.
         """
-        print(f"Starting a new chat for user {user_id}")
+        self._log(f"Starting a new chat for user {user_id}")
 
         # Reset the current thread if it exists
         self.reset_thread()
@@ -287,7 +280,7 @@ class OpenAIAssistantManager:
         # Create and save a new thread
         new_thread = self.create_and_save_thread(user_id)
 
-        print(f"New chat started with thread ID: {new_thread.id}")
+        self._log(f"New chat started with thread ID: {new_thread.id}")
 
         return new_thread
 
@@ -322,25 +315,25 @@ class OpenAIAssistantManager:
         return tool_outputs
 
     def generate_penelope_response_streaming(self, assistant_id, user_message, user_id, files=None):
-        self._log(f"Starting streaming interaction with assistant. User message: {user_message[:50]}...")
-        
-        if not self.thread:
-            self.create_and_save_thread(user_id)
-        
-        if files:
-            self._log(f"\nFiles: {str(files)}")
-            self.handle_file_uploads(files=files, thread_id=self.thread.id)
-        
-        self.add_message(user_message, role="user")
-        
-        run = self.run_assistant(assistant_id)
-        full_response = ""
+            self._log(f"Starting streaming interaction with assistant. User message: {user_message[:50]}...")
+            
+            if not self.thread:
+                self.create_and_save_thread(user_id)
+            
+            if files:
+                self._log(f"\nFiles: {str(files)}")
+                self.handle_file_uploads(files=files, thread_id=self.thread.id)
+            
+            self.add_message(user_message, role="user")
+            
+            run = self.run_assistant(assistant_id)
+            full_response = ""
+            assistant_run_id = str(uuid.uuid4())
 
-        assistant_run_id = str(uuid.uuid4())
-        
-        while True:
             for event in run:
-                if isinstance(event, ThreadMessageDelta):
+                if isinstance(event, ThreadRunInProgress):
+                    self._log("Run in progress...")
+                elif isinstance(event, ThreadMessageDelta):
                     delta = event.data.delta
                     if delta.content:
                         for content_block in delta.content:
@@ -349,8 +342,10 @@ class OpenAIAssistantManager:
                                 full_response += chunk
                                 yield {"penelope": chunk, "id": assistant_run_id}
                 elif isinstance(event, ThreadRunCompleted):
-                    self._log("Run completed.")
+                    self._log("--- Run completed ---")
                     break
+                elif isinstance(event, ThreadRunCreated):
+                    self._log("--- Thread run created ---")
                 elif isinstance(event, ThreadRunFailed):
                     self._log("Run failed.")
                     error_message = "Failed to get a response from Penelope."
@@ -361,16 +356,27 @@ class OpenAIAssistantManager:
                     tool_outputs = self._process_tool_calls(event.data.required_action.submit_tool_outputs.tool_calls)
                     if tool_outputs:
                         self._log("Submitting tool outputs...")
-                        run = self.client.beta.threads.runs.submit_tool_outputs(
+                        second_run = self.client.beta.threads.runs.submit_tool_outputs(
                             thread_id=self.thread.id, 
-                            run_id=run.id, 
-                            tool_outputs=tool_outputs
+                            run_id=event.data.id, 
+                            tool_outputs=tool_outputs,
+                            stream=True
                         )
+                        for second_event in second_run:
+                            if isinstance(second_event, ThreadMessageDelta):
+                                delta = second_event.data.delta
+                                if delta.content:
+                                    for content_block in delta.content:
+                                        if content_block.type == 'text':
+                                            chunk = content_block.text.value
+                                            full_response += chunk
+                                            yield {"penelope": chunk, "id": assistant_run_id}
                         self._log("Tool outputs submitted...")
                     else:
                         self._log("No tool outputs to submit.")
                         break
-            
+               
+                
             if full_response:
                 self.add_message(full_response, role="assistant")
                 db_message = Message(
@@ -383,7 +389,6 @@ class OpenAIAssistantManager:
                 self.db_session.commit()
             
             self._log("\nStreaming response completed.")
-
 
     def generate_multi_ai_response(self, user_prompt: str) -> Generator[Dict[str, str], None, None]:
         if self.verbose:

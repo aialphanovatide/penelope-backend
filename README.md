@@ -104,6 +104,26 @@ docker-compose run web alembic current
 docker-compose run web alembic downgrade <previous_revision>
 ```
 
+## Alembic command when running on localhost
+
+- To initialize Alembic for the first time:
+
+```console
+alembic init migrations
+```
+
+- To create a new migration:
+
+```console
+alembic revision --autogenerate -m "Description of the change"
+```
+
+- To apply all pending migrations:
+
+```console
+alembic upgrade head
+```
+
 ## Useful Commands
 
 Here are some additional useful commands:

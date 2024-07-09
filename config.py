@@ -54,7 +54,7 @@ class Message(Base):
     thread_id = Column(String(32), ForeignKey('threads.id'), nullable=False)
     role = Column(String(50), nullable=False)  # 'user', 'assistant', or 'system'
     content = Column(Text, nullable=False)
-    feedback = Column(Boolean)
+    feedback = Column(Text)
     created_at = Column(DateTime, default=datetime.now())
 
     thread = relationship('Thread', back_populates='messages')
