@@ -183,14 +183,16 @@ class OpenAIAssistantManager:
         self._log(f"Message added successfully. Message ID: {message.id}")
         return message
 
-    def update_message_feedback(self, message_id: str, feedback: bool):
+    def update_message_feedback(self, message_id: str, feedback):
         db_message = self.db_session.query(Message).filter_by(id=message_id).first()
         if db_message:
             db_message.feedback = feedback
             self.db_session.commit()
-            self._log(f"Updated feedback for message {message_id}")
+            self._log(f"Updated feedback for message {message_id}\nMessage: {feedback}")
+            return {'message': f"Updated feedback for message {message_id}", 'success': True}
         else:
             self._log(f"Message {message_id} not found in database")
+            return {'message': f"Message {message_id} not found in database", 'success': False}
 
     def run_assistant(self, assistant_id):
         self._log(f"Running assistant with ID: {assistant_id}")

@@ -83,9 +83,10 @@ def update_feedback():
         if message_id is None or feedback is None:
             raise BadRequest("Missing message_id or feedback")
 
-        penelope_manager.update_message_feedback(message_id, feedback)
-
-        return jsonify({"status": "success", "message": f"Feedback updated for message {message_id}"}), 200
+        response = penelope_manager.update_message_feedback(message_id, feedback)
+        if response['success']:
+            return jsonify(response), 200
+        return jsonify(response), HTTPStatus.BAD_REQUEST
 
     except BadRequest as br:
         penelope_manager.rollback()
