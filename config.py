@@ -13,6 +13,26 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 class User(Base):
+    """
+    Represents a user in the system.
+
+    Columns:
+    - id (String): Primary key, unique identifier for the user.
+    - username (String): Unique username, max 50 characters.
+    - email (String): Unique email address, max 120 characters.
+    - picture (String): URL or path to user's profile picture.
+    - password_hash (String): Hashed password, max 255 characters.
+    - created_at (DateTime): Timestamp of user creation.
+    - updated_at (DateTime): Timestamp of last user update.
+    - is_active (Boolean): Indicates if the user account is active.
+
+    Relationships:
+    - threads: One-to-many relationship with Thread model.
+
+    Methods:
+    - as_dict(): Returns a dictionary representation of the user, excluding password_hash.
+    """
+     
     __tablename__ = 'users'
 
     id = Column(String(255), primary_key=True)
@@ -34,6 +54,23 @@ class User(Base):
             }
     
 class Thread(Base):
+    """
+    Represents a conversation thread.
+
+    Columns:
+    - id (String): Primary key, 32-character unique identifier for the thread.
+    - user_id (String): Foreign key referencing the User model.
+    - created_at (DateTime): Timestamp of thread creation.
+    - updated_at (DateTime): Timestamp of last thread update.
+
+    Relationships:
+    - user: Many-to-one relationship with User model.
+    - messages: One-to-many relationship with Message model.
+
+    Methods:
+    - as_dict(): Returns a dictionary representation of the thread.
+    """
+        
     __tablename__ = 'threads'
 
     id = Column(String(32), primary_key=True)
@@ -48,6 +85,24 @@ class Thread(Base):
         return {column.name: getattr(self, column.name) for column in self.__table__.columns} 
 
 class Message(Base):
+    """
+    Represents a message within a thread.
+
+    Columns:
+    - id (String): Primary key, 40-character unique identifier for the message.
+    - thread_id (String): Foreign key referencing the Thread model.
+    - role (String): Role of the message sender ('user', 'assistant', or 'system').
+    - content (Text): The content of the message.
+    - feedback (Text): Any feedback associated with the message.
+    - created_at (DateTime): Timestamp of message creation.
+
+    Relationships:
+    - thread: Many-to-one relationship with Thread model.
+
+    Methods:
+    - as_dict(): Returns a dictionary representation of the message.
+    """
+        
     __tablename__ = 'messages'
 
     id = Column(String(40), primary_key=True)
@@ -63,6 +118,20 @@ class Message(Base):
         return {column.name: getattr(self, column.name) for column in self.__table__.columns} 
 
 class Assistant(Base):
+    """
+    Represents an AI assistant.
+
+    Columns:
+    - id (Integer): Primary key, auto-incrementing identifier for the assistant.
+    - openai_assistant_id (String): Unique identifier from OpenAI for the assistant.
+    - name (String): Name of the assistant.
+    - description (Text): Description of the assistant's capabilities or purpose.
+    - created_at (DateTime): Timestamp of assistant creation.
+    - updated_at (DateTime): Timestamp of last assistant update.
+
+    Methods:
+    - as_dict(): Returns a dictionary representation of the assistant.
+    """
     __tablename__ = 'assistants'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -76,6 +145,20 @@ class Assistant(Base):
         return {column.name: getattr(self, column.name) for column in self.__table__.columns} 
 
 class File(Base):
+    """
+    Represents a file in the system.
+
+    Columns:
+    - id (Integer): Primary key, auto-incrementing identifier for the file.
+    - openai_file_id (String): Unique identifier from OpenAI for the file.
+    - filename (String): Name of the file.
+    - purpose (String): Purpose or type of the file (e.g., 'fine-tune', 'assistants').
+    - created_at (DateTime): Timestamp of file creation.
+    - updated_at (DateTime): Timestamp of last file update.
+
+    Methods:
+    - as_dict(): Returns a dictionary representation of the file.
+    """
     __tablename__ = 'files'
 
     id = Column(Integer, primary_key=True, autoincrement=True)

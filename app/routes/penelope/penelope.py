@@ -28,11 +28,11 @@ def penelope_inference():
             try:
                 if behaviour == 'multi-model':
                     # Generate response from Penelope
-                    for response in penelope_manager.generate_penelope_response_streaming(assistant_id, user_prompt, user_id):
+                    for response in penelope_manager.generate_penelope_response_streaming(assistant_id, user_prompt, user_id, files):
                         yield f"data: {json.dumps({'type': 'multi_ai', 'service': 'penelope', 'content': response['penelope'], 'id': response['id']})}\n\n"
                     
                     # Generate responses from multiple AI services
-                    for response in penelope_manager.generate_multi_ai_response(user_prompt):
+                    for response in penelope_manager.generate_multi_ai_response(user_prompt, user_id):
                         for service, content in response.items():
                             if service != 'id':
                                 yield f"data: {json.dumps({'type': 'multi_ai', 'service': service, 'content': content, 'id': response['id']})}\n\n"
