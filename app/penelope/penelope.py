@@ -70,7 +70,7 @@ class OpenAIAssistantManager:
         self.chatgpt = ChatGPTAPI(verbose=self.verbose)
         self.news_fetcher = CoinNewsFetcher()
         self.defillama = LlamaChainFetcher(coingecko_base_url=self.coingecko_base_url, coingecko_headers=self.coingecko_headers)
-        self.coins_fetcher = CoinGeckoAPI(coingecko_headers=self.coingecko_headers, coingecko_base_url=self.coingecko_base_url)
+        self.coins_fetcher = CoinGeckoAPI(coingecko_headers=self.coingecko_headers, coingecko_base_url=self.coingecko_base_url, verbose=True)
         self.db_session = Session()
 
         self._log("OpenAIAssistantManager initialized successfully.")
@@ -291,12 +291,17 @@ class OpenAIAssistantManager:
         tool_outputs = []
         for tool in tool_calls:
             self._log(f"Processing tool: {tool.function.name}")
-            if tool.function.name in ["get_token_data", "get_latest_news", "extract_data", "get_llama_chains"]:
+            if tool.function.name in ["get_token_data", "get_latest_news", "extract_data", "get_llama_chains", "get_coin_history"]:
                 args = json.loads(tool.function.arguments)
+                self._log(f'Raw Args: {args}')
+                
                 arg_value = args.get('coin')
                 url = args.get('url')
                 token_id = args.get('token_id')
-                self._log(f'Tool: {tool.function.name}, Argument: {arg_value or url or token_id}')
+                date = args.get('date')
+                coin_id = args.get('coin_id')
+                
+                self._log(f'Tool: {tool.function.name}, Argument: {arg_value or url or token_id or date or coin_id}')
                 output = None
                 if tool.function.name == 'get_token_data':
                     output = self.coins_fetcher.get_token_data(arg_value)
@@ -306,6 +311,8 @@ class OpenAIAssistantManager:
                     output = self.scraper.extract_data(url)
                 elif tool.function.name == 'get_llama_chains':
                     output = self.defillama.get_llama_chains(token_id)
+                elif tool.function.name == 'get_coin_history':
+                    output = self.coins_fetcher.get_coin_history(coin_id, date)
                 tool_outputs.append({
                     "tool_call_id": tool.id,
                     "output": str(output)

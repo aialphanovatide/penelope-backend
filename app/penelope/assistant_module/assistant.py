@@ -146,6 +146,27 @@ tools=[ {"type": "code_interpreter"},
                     },
             },
         }, 
+        {
+            "type": "function",
+            "function": {
+                "name": "get_coin_history",
+                "description": "Extract historical data of tokens/coins, volumne, market cap, price...",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "coin_id": {
+                            "type": "string",
+                            "description": "name of the coin",
+                        },
+                        "date": {
+                            "type": "string",
+                            "description": "specific date",
+                        },
+                    },
+                    "required": ["coin_id", "date"],
+                    },
+            },
+        }, 
     ]
 
 # response_update = manager.update_assistant(assistant_id=assistant_id,
