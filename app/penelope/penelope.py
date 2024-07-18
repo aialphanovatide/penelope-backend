@@ -3,6 +3,7 @@ import json
 import uuid
 import time
 from openai import OpenAI
+from openai.types.beta.threads.message import Message as OpenAIMessage
 from openai.types.beta.assistant_stream_event import (
    ThreadRunRequiresAction, ThreadRunCompleted, ThreadMessageDelta, ThreadRunFailed,
    ThreadRunCreated, ThreadRunInProgress 
@@ -102,6 +103,8 @@ class OpenAIAssistantManager:
             self._log(f"New thread created with ID: {openai_thread.id}")
         else:
             self._log(f"Using existing thread with ID: {self.threads[user_id]} for user {user_id}")
+        
+        self._log(f"Thread ID: {self.threads[user_id]}")
         return self.threads[user_id]
     
     def generate_multi_ai_response(self, user_prompt: str, user_id: str) -> Generator[Dict[str, str], None, None]:
@@ -166,6 +169,45 @@ class OpenAIAssistantManager:
         if self.verbose:
             print("\nAll AI services have completed their responses and saved.")
 
+    def process_annotations(self, chunk: str, thread_id: str) -> str:
+        self._log(f"Processing annotations for chunk: {chunk[:50]}...")
+        
+        # Retrieve the latest message (which should be the one we're currently processing)
+        messages = self.get_thread_messages(thread_id)
+        print('messages: ', messages)
+        if not messages.data:
+            self._log("No messages found in the thread.")
+            return chunk
+        
+        latest_message = messages.data[0]
+        message_content = latest_message.content[0].text
+        annotations = message_content.annotations
+        
+        if not annotations:
+            self._log("No annotations found in the message.")
+            return chunk
+        
+        # Process annotations
+        for index, annotation in enumerate(annotations):
+            if annotation.text in chunk:
+                if (file_citation := getattr(annotation, 'file_citation', None)):
+                    try:
+                        cited_file = self.client.files.retrieve(file_citation.file_id)
+                        chunk = chunk.replace(annotation.text, f' [{index}]')
+                        chunk += f'\n[{index}] {file_citation.quote} from {cited_file.filename}'
+                    except Exception as e:
+                        self._log(f"Error retrieving file citation: {str(e)}")
+                elif (file_path := getattr(annotation, 'file_path', None)):
+                    try:
+                        cited_file = self.client.files.retrieve(file_path.file_id)
+                        chunk = chunk.replace(annotation.text, f' [{index}]')
+                        chunk += f'\n[{index}] Click <here> to download {cited_file.filename}'
+                    except Exception as e:
+                        self._log(f"Error retrieving file path: {str(e)}")
+        
+        self._log(f"Processed chunk with annotations: {chunk[:50]}...")
+        return chunk
+
     def generate_penelope_response_streaming(self, assistant_id, user_message, user_id, files=None):
         self._log(f"Starting streaming interaction with assistant for user {user_id}. User message: {user_message[:50]}...")
         
@@ -180,7 +222,7 @@ class OpenAIAssistantManager:
         
         self.add_message(user_message, role="user", thread_id=thread_id, message_id=message_id)
         run = self.run_assistant(assistant_id, thread_id=thread_id)
-        
+      
         full_response = ""
         assistant_run_id = str(uuid.uuid4())
         
@@ -194,6 +236,11 @@ class OpenAIAssistantManager:
                         if content_block.type == 'text':
                             chunk = content_block.text.value
                             full_response += chunk
+                            
+                            # Process annotations for the chunk
+                            # processed_chunk = self.process_annotations(chunk, thread_id)
+                            # print('\nprocessed_chunk: ', processed_chunk)
+                            
                             yield {"penelope": chunk, "id": assistant_run_id}
             elif isinstance(event, ThreadRunCompleted):
                 self._log("--- Run completed ---")
@@ -224,17 +271,19 @@ class OpenAIAssistantManager:
                                     if content_block.type == 'text':
                                         chunk = content_block.text.value
                                         full_response += chunk
+                                        
+                                        # Process annotations for the chunk
+                                        # processed_chunk = self.process_annotations(chunk, thread_id)
+                                        # print('\nprocessed_chunk: ', processed_chunk)
+                                        
                                         yield {"penelope": chunk, "id": assistant_run_id}
                     self._log("Tool outputs submitted...")
                 else:
                     self._log("No tool outputs to submit.")
                 break
-        
-        # Penelope Message ID
-        penelope_message_id = str(uuid.uuid4())
 
         if full_response:
-            self.add_message(message_id=penelope_message_id, content=full_response, role="penelope_assistant", thread_id=thread_id)
+            self.add_message(message_id=assistant_run_id, content=full_response, role="penelope_assistant", thread_id=thread_id)
         
         self._log("\nStreaming response completed.")
 
@@ -314,12 +363,160 @@ class OpenAIAssistantManager:
         self._log(f"Run status for Run ID {run_id}: {run.status}")
         return run.status
 
-    def get_messages(self, thread_id):
+    def get_thread_messages(self, thread_id):
         self._log("Retrieving messages from thread...")
         messages = self.client.beta.threads.messages.list(thread_id=thread_id)
         self._log(f"Retrieved {len(messages.data)} messages.")
         return messages
     
+    def get_message(self, message_id: str, thread_id: str) -> Dict[str, Any]:
+        """
+        Retrieve a specific message from a thread and process its annotations.
+
+        This method fetches a message from the OpenAI API, extracts its content,
+        processes any annotations (such as citations or file references), and
+        returns the formatted message content along with citation information.
+
+        Args:
+            message_id (str): The ID of the message to retrieve.
+            thread_id (str): The ID of the thread containing the message.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the processed message content
+            and additional information. The dictionary includes:
+            - 'content': The message content with annotation placeholders.
+            - 'citations': A list of citation strings.
+            - 'file_citations': A list of dictionaries containing file citation information.
+
+        Raises:
+            ValueError: If the message or thread ID is invalid.
+            Exception: For any other errors that occur during processing.
+        """
+        try:
+            # Retrieve the message object
+            message: OpenAIMessage = self.client.beta.threads.messages.retrieve(
+                thread_id=thread_id,
+                message_id=message_id
+            )
+
+            # Extract the message content
+            if not message.content or not message.content[0].text:
+                self._log(f"No message was found with ID: {message_id}")
+                return {"content": "", "citations": [], "file_citations": []}
+
+            message_content = message.content[0].text
+            annotations = message_content.annotations
+            citations: List[str] = []
+            file_citations: List[Dict[str, str]] = []
+
+            # Iterate over the annotations and add footnotes
+            for index, annotation in enumerate(annotations):
+                # Replace the text with a footnote
+                message_content.value = message_content.value.replace(annotation.text, f' [{index}]')
+                
+                # Gather citations based on annotation attributes
+                if (file_citation := getattr(annotation, 'file_citation', None)):
+                    try:
+                        cited_file = self.client.files.retrieve(file_citation.file_id)
+                        citations.append(f'[{index}] {file_citation.quote} from {cited_file.filename}')
+                        file_citations.append({
+                            "file_id": file_citation.file_id,
+                            "quote": file_citation.quote,
+                            "filename": cited_file.filename
+                        })
+                    except Exception as e:
+                        self._log(f"Error retrieving file citation: {str(e)}")
+                elif (file_path := getattr(annotation, 'file_path', None)):
+                    try:
+                        cited_file = self.client.files.retrieve(file_path.file_id)
+                        citations.append(f'[{index}] Click <here> to download {cited_file.filename}')
+                        file_citations.append({
+                            "file_id": file_path.file_id,
+                            "filename": cited_file.filename
+                        })
+                    except Exception as e:
+                        self._log(f"Error retrieving file path: {str(e)}")
+
+            # Prepare the final content with citations
+            final_content = message_content.value
+            if citations:
+                final_content += '\n\nCitations:\n' + '\n'.join(citations)
+
+            return {
+                "content": final_content,
+                "citations": citations,
+                "file_citations": file_citations
+            }
+
+        except ValueError as ve:
+            self._log(f"Invalid message or thread ID: {str(ve)}")
+            raise
+        except Exception as e:
+            self._log(f"Error processing message: {str(e)}")
+            raise
+    
+    def handle_file_uploads(self, files, thread_id: str) -> List[str]:
+        """
+        Handle file uploads for the OpenAI Assistant API.
+
+        Args:
+        client (OpenAI): The OpenAI client instance.
+        files (List): List of file objects to upload.
+        thread_id (str): The ID of the thread to associate the files with.
+
+        Returns:
+        List[str]: List of successfully uploaded file IDs.
+        """
+        supported_extensions = [
+            'c', 'cs', 'cpp', 'doc', 'docx', 'html', 'java', 'json', 'md', 'pdf', 'php', 
+            'pptx', 'py', 'rb', 'tex', 'txt', 'css', 'js', 'sh', 'ts', 'csv', 'jpeg', 
+            'jpg', 'gif', 'png', 'tar', 'xlsx', 'xml', 'zip'
+        ]
+        supported_mime_types = {
+            'text/x-c', 'text/x-csharp', 'text/x-c++', 'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'text/html', 'text/x-java', 'application/json', 'text/markdown',
+            'application/pdf', 'text/x-php',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'text/x-python', 'text/x-script.python', 'text/x-ruby', 'text/x-tex',
+            'text/plain', 'text/css', 'text/javascript', 'application/x-sh',
+            'application/typescript', 'application/csv', 'image/jpeg', 'image/gif',
+            'image/png', 'application/x-tar',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/xml', 'text/xml', 'application/zip'
+        }
+
+        files_ids = []
+
+        for file in files:
+            try:
+                file_extension = file.filename.split('.')[-1].lower()
+                if file_extension not in supported_extensions:
+                    self._log(f"Unsupported file type: {file.filename}")
+                    continue
+                
+                if hasattr(file, 'content_type') and file.content_type not in supported_mime_types:
+                    self._log(f"Unsupported MIME type: {file.content_type}")
+                    continue
+
+                file_response = self.client.files.create(file=file.stream, purpose="assistants")
+                files_ids.append(file_response.id)
+                self._log(f"File uploaded successfully: {file.filename}")
+            except Exception as e:
+                self._log(f"Error uploading file {file.filename}: {str(e)}")
+
+        if files_ids:
+            try:
+                self.client.beta.threads.update(
+                    thread_id=thread_id,
+                    tool_resources={"code_interpreter": {"file_ids": files_ids}}
+                )
+                self._log(f"Files associated with thread {thread_id}")
+            except Exception as e:
+                self._log(f"Error associating files with thread: {str(e)}")
+
+        return files_ids
+
     def start_new_chat(self, user_id: str):
         """
         Start a new chat by resetting the current thread and creating a new one.
@@ -333,7 +530,7 @@ class OpenAIAssistantManager:
         self._log(f"Starting a new chat for user {user_id}")
 
         # Reset the current thread if it exists
-        self.reset_thread()
+        self.reset_thread(user_id)
 
         # Create and save a new thread
         new_thread = self.get_or_create_thread(user_id)
@@ -362,6 +559,9 @@ class OpenAIAssistantManager:
 
 
 penelope_manager = OpenAIAssistantManager(verbose=True)
+
+# messages= penelope_manager.get_thread_messages(thread_id='thread_Tmnp5eRCknAsGHF32iylK4dw')
+# print(messages)
 
 
 

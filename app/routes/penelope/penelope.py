@@ -144,10 +144,10 @@ def start_new_chat():
         return jsonify({'error': 'User ID is required'}), 400
     
     try:
-        new_thread = penelope_manager.start_new_chat(user_id)
+        new_thread_id = penelope_manager.start_new_chat(user_id)
         return jsonify({
             'message': 'New chat started successfully',
-            'thread_id': new_thread.id
+            'thread_id': new_thread_id
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
