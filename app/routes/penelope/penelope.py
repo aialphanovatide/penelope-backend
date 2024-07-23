@@ -16,19 +16,30 @@ def penelope_inference():
     try:
         user_prompt = request.form.get('prompt')
         behaviour = request.form.get('behaviour')
-        user_id = request.form.get('user_id')
+        user = request.form.get('user')
         files = request.files.getlist('files')
 
-        if not all([user_prompt, behaviour, user_id]):
+        if not all([user_prompt, behaviour, user]):
             raise BadRequest("Missing parameters")
         
-        user_id = str(user_id)
+        user_id = None
+        user_name = None
+        
+        try:
+            user_data = json.loads(user)
+            id= user_data.get('id')
+            username= user_data.get('username')
+            if id:
+                user_id = id
+                user_name = username
+        except Exception as e:
+            return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
 
         def generate():
             try:
                 if behaviour == 'multi-model':
                     # Generate response from Penelope
-                    for response in penelope_manager.generate_penelope_response_streaming(assistant_id, user_prompt, user_id, files):
+                    for response in penelope_manager.generate_penelope_response_streaming(assistant_id, user_prompt, user_id, user_name, files):
                         yield f"data: {json.dumps({'type': 'multi_ai', 'service': 'penelope', 'content': response['penelope'], 'id': response['id']})}\n\n"
                     
                     # Generate responses from multiple AI services
@@ -38,7 +49,7 @@ def penelope_inference():
                                 yield f"data: {json.dumps({'type': 'multi_ai', 'service': service, 'content': content, 'id': response['id']})}\n\n"
 
                 else:
-                    for response in penelope_manager.generate_penelope_response_streaming(assistant_id, user_prompt, user_id, files):
+                    for response in penelope_manager.generate_penelope_response_streaming(assistant_id, user_prompt, user_id, user_name, files):
                         yield f"data: {json.dumps({'type': 'multi_ai', 'service': 'penelope', 'content': response['penelope'], 'id': response['id']})}\n\n"
             except Exception as e:
                 yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
