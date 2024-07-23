@@ -281,14 +281,14 @@ class CoinGeckoAPI:
                 
                 return coins_data_list if coins_data_list else None
             else:
-                self._debug_print(f"Error fetching token data: Status code {response.status_code}")
-                return None
+                self._debug_print(f"Error fetching token data: Status code {response.content}")
+                return f"Error fetching token data: Status code {response.content}"
         except requests.RequestException as e:
             self._debug_print(f"Error fetching token data: {str(e)}")
-            return None
+            return f"Error fetching token data: {str(e)}"
         except KeyError as e:
             self._debug_print(f"Key error: {str(e)}")
-            return None
+            return f"Key error: {str(e)}"
 
 # # Example usage
 # if __name__ == "__main__":

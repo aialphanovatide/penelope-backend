@@ -28,7 +28,7 @@ class OpenAIAssistantManager:
         # Initialize environment variables
         self.api_key = os.getenv("OPENAI_API_KEY")
         self.coingecko_api_key = os.getenv("COINGECKO_API_KEY")
-        self.coingecko_base_url = "https://api.coingecko.com/api/v3"
+        self.coingecko_base_url = "https://pro-api.coingecko.com/api/v3"
         
         if not self.api_key or not self.coingecko_api_key:
             raise ValueError("OPENAI_API_KEY and COINGECKO_API_KEY must be set in the environment.")
@@ -220,7 +220,7 @@ class OpenAIAssistantManager:
         message_id = str(uuid.uuid4())
         
         self.add_message(user_message, role="user", thread_id=thread_id, message_id=message_id)
-        run = self.run_assistant(assistant_id, thread_id=thread_id)
+        run = self.run_assistant(assistant_id, user_name, thread_id=thread_id)
       
         full_response = ""
         assistant_run_id = str(uuid.uuid4())
@@ -235,10 +235,6 @@ class OpenAIAssistantManager:
                         if content_block.type == 'text':
                             chunk = content_block.text.value
                             full_response += chunk
-                            
-                            # Process annotations for the chunk
-                            # processed_chunk = self.process_annotations(chunk, thread_id)
-                            # print('\nprocessed_chunk: ', processed_chunk)
                             
                             yield {"penelope": chunk, "id": assistant_run_id}
             elif isinstance(event, ThreadRunCompleted):
@@ -270,10 +266,6 @@ class OpenAIAssistantManager:
                                     if content_block.type == 'text':
                                         chunk = content_block.text.value
                                         full_response += chunk
-                                        
-                                        # Process annotations for the chunk
-                                        # processed_chunk = self.process_annotations(chunk, thread_id)
-                                        # print('\nprocessed_chunk: ', processed_chunk)
                                         
                                         yield {"penelope": chunk, "id": assistant_run_id}
                     self._log("Tool outputs submitted...")
@@ -344,12 +336,13 @@ class OpenAIAssistantManager:
             self._log(f"Message {message_id} not found in database")
             return {'message': f"Message {message_id} not found in database", 'success': False}
 
-    def run_assistant(self, assistant_id, thread_id):
+    def run_assistant(self, assistant_id, user_name, thread_id):
         self._log(f"Running assistant with ID: {assistant_id} for thread {thread_id}")
         run = self.client.beta.threads.runs.create(
             thread_id=thread_id,
             assistant_id=assistant_id,
-            stream=True
+            stream=True,
+            additional_instructions=f"If the user is greeting or it's the initial conversation, personalize the response message with the user name, which is: {user_name}"
         )
         self._log(f"Assistant run created")
         return run
