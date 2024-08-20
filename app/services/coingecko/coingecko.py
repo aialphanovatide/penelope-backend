@@ -4,12 +4,12 @@ import requests
 from dateutil import parser
 from difflib import SequenceMatcher
 from datetime import datetime, timedelta
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 
 
 COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
 COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3"
-COINGECKO_PRO_API_URL='https://pro-api.coingecko.com/api/v3/coins'
+COINGECKO_PRO_API_URL = 'https://pro-api.coingecko.com/api/v3/coins'
 COINGECKO_HEADERS = {
     "accept": "application/json",
     "x-cg-pro-api-key": COINGECKO_API_KEY,
@@ -94,12 +94,12 @@ class CoinGeckoAPI:
         self._debug_print(f"Converted date: {formatted_date}")
         return formatted_date
 
-    def get_list_of_coins(self) -> Optional[List[Dict]]:
+    def get_list_of_coins(self) -> Union[List[Dict], str]:
         """
         Fetch a list of all coins from the CoinGecko API.
 
         Returns:
-            Optional[List[Dict]]: List of dictionaries containing coin data, or None if the request fails.
+            Union[List[Dict], str]: List of dictionaries containing coin data or error message.
         """
         self._debug_print("Fetching list of coins")
         try:
@@ -108,10 +108,11 @@ class CoinGeckoAPI:
             response.raise_for_status()
             return response.json()
         except requests.RequestException as e:
-            self._debug_print(f"Error fetching list of coins: {str(e)}")
-            return None
+            error_message = f"Error fetching list of coins: {str(e)}"
+            self._debug_print(error_message)
+            return error_message
 
-    def get_coin_history(self, coin_id: str, date: Optional[str] = None) -> Optional[List[Dict]]:
+    def get_coin_history(self, coin_id: str, date: Optional[str] = None) -> Union[List[Dict], str]:
         """
         Retrieve historical data for a specific coin.
 
@@ -120,60 +121,60 @@ class CoinGeckoAPI:
             date (str, optional): The date for which to retrieve history (format: DD-MM-YYYY).
 
         Returns:
-            Optional[List[Dict]]: List of dictionaries containing historical data, or None if not found.
+            Union[List[Dict], str]: List of dictionaries containing historical data or error message.
         """
         self._debug_print(f"Fetching history for coin: {coin_id}, date: {date}")
-        COINGECKO_PRO_API_URL = 'https://pro-api.coingecko.com/api/v3/coins'
         formatted_coin_id = coin_id.casefold().strip()
         list_coins_ids = self.get_list_of_coins()
-        
-        if list_coins_ids and formatted_coin_id:
-            ids = self.find_best_match_ids(param=formatted_coin_id, coins=list_coins_ids)
-            coins_data_historical: List[Dict] = []
-            
-            if date is None:
-                date = (datetime.now() - timedelta(days=365)).strftime('%d-%m-%Y')
-            else:
-                try:
-                    date = self.convert_to_date(date)
-                except ValueError:
-                    return 'Invalid date format. Please use DD-MM-YYYY.'
-            
-            params = {
-                'date': date,
-                'localization': 'false'
-            }
-            
-            if not ids:
-                return 'Please specify the token as you find it on crypto websites'
-            
-            self._debug_print(f"Matching IDs: {ids}")
-            
-            for id in ids:
-                url = f'{COINGECKO_PRO_API_URL}/{id}/history'
-                try:
-                    response = requests.get(url, params=params, headers=self.coingecko_headers)
-                    self._debug_print(f"Response status for {id}: {response.status_code}")
-                    if response.status_code == 200:
-                        data = response.json()
-                        market_cap = data.get('market_data', {}).get('market_cap', {}).get('usd')
-                        if market_cap and market_cap > 100000:
-                            coin_data = {
-                                'id': coin_id,
-                                'date': date,
-                                'price': data.get('market_data', {}).get('current_price', {}).get('usd'),
-                                'market_cap': market_cap,
-                                'total_volume': data.get('market_data', {}).get('total_volume', {}).get('usd')
-                            }
-                            coins_data_historical.append(coin_data)
-                        else:
-                            self._debug_print(f'Market cap for {coin_id} on {date} is below threshold or not available.')
-                except requests.RequestException as e:
-                    self._debug_print(f"Request error for {coin_id}: {str(e)}")
-                except KeyError as e:
-                    self._debug_print(f"Key error for {coin_id}: {str(e)}")
-            
-            return coins_data_historical if coins_data_historical else 'Unable to get historical data'
+
+        if isinstance(list_coins_ids, str):
+            return list_coins_ids  # Return error message if fetching coins failed
+
+        ids = self.find_best_match_ids(param=formatted_coin_id, coins=list_coins_ids)
+        if not ids:
+            return 'No matching coin IDs found.'
+
+        coins_data_historical: List[Dict] = []
+
+        if date is None:
+            date = (datetime.now() - timedelta(days=365)).strftime('%d-%m-%Y')
+        else:
+            try:
+                date = self.convert_to_date(date)
+            except ValueError:
+                return 'Invalid date format. Please use DD-MM-YYYY.'
+
+        params = {
+            'date': date,
+            'localization': 'false'
+        }
+
+        self._debug_print(f"Matching IDs: {ids}")
+
+        for id in ids:
+            url = f'{COINGECKO_PRO_API_URL}/{id}/history'
+            try:
+                response = requests.get(url, params=params, headers=self.coingecko_headers)
+                response.raise_for_status()
+                data = response.json()
+                market_cap = data.get('market_data', {}).get('market_cap', {}).get('usd')
+                if market_cap and market_cap > 100000:
+                    coin_data = {
+                        'id': coin_id,
+                        'date': date,
+                        'price': data.get('market_data', {}).get('current_price', {}).get('usd'),
+                        'market_cap': market_cap,
+                        'total_volume': data.get('market_data', {}).get('total_volume', {}).get('usd')
+                    }
+                    coins_data_historical.append(coin_data)
+                else:
+                    self._debug_print(f'Market cap for {coin_id} on {date} is below threshold or not available.')
+            except requests.RequestException as e:
+                self._debug_print(f"Request error for {coin_id}: {str(e)}")
+            except KeyError as e:
+                self._debug_print(f"Key error for {coin_id}: {str(e)}")
+
+        return coins_data_historical if coins_data_historical else 'Unable to get historical data'
 
     def similarity(self, a: str, b: str) -> float:
         """
@@ -212,7 +213,7 @@ class CoinGeckoAPI:
                 matches.append(coin["id"])
         return matches
 
-    def get_token_data(self, coin: str) -> Optional[List[Dict]]:
+    def get_token_data(self, coin: str) -> Union[List[Dict], str]:
         """
         Retrieve data for a specific coin from the CoinGecko API.
 
@@ -220,17 +221,20 @@ class CoinGeckoAPI:
             coin (str): The coin symbol or name to search for.
 
         Returns:
-            Optional[List[Dict]]: List of dictionaries containing coin data, or None if not found.
+            Union[List[Dict], str]: List of dictionaries containing coin data or error message.
         """
         self._debug_print(f"Fetching token data for: {coin}")
         try:
             formatted_coin = coin.casefold().strip()
             coins = self.get_list_of_coins()
+
+            if isinstance(coins, str):
+                return coins  # Return error message if fetching coins failed
+
             coins_list = self.find_best_match_ids(param=formatted_coin, coins=coins)
-            
             if not coins_list:
-                return None
-            
+                return 'No matching coins found.'
+
             coins_data_list: List[Dict] = []
             params = {
                 'vs_currency': 'usd',
@@ -242,7 +246,7 @@ class CoinGeckoAPI:
             }
             url = f"{self.coingecko_base_url}/coins/markets"
             response = requests.get(url, params=params, headers=self.coingecko_headers)
-            
+
             if response.status_code == 200:
                 response_data = response.json()
                 for coin_data in response_data:
@@ -278,17 +282,22 @@ class CoinGeckoAPI:
                         }
                         if processed_coin_data['market_cap'] > 100000:
                             coins_data_list.append(processed_coin_data)
-                
-                return coins_data_list if coins_data_list else None
+
+                return coins_data_list if coins_data_list else 'No token data available.'
+
             else:
-                self._debug_print(f"Error fetching token data: Status code {response.content}")
-                return f"Error fetching token data: Status code {response.content}"
+                error_message = f"Error fetching token data: Status code {response.status_code}"
+                self._debug_print(error_message)
+                return error_message
+
         except requests.RequestException as e:
-            self._debug_print(f"Error fetching token data: {str(e)}")
-            return f"Error fetching token data: {str(e)}"
+            error_message = f"Error fetching token data: {str(e)}"
+            self._debug_print(error_message)
+            return error_message
         except KeyError as e:
-            self._debug_print(f"Key error: {str(e)}")
-            return f"Key error: {str(e)}"
+            error_message = f"Key error: {str(e)}"
+            self._debug_print(error_message)
+            return error_message
 
 # # Example usage
 # if __name__ == "__main__":
@@ -304,8 +313,7 @@ class CoinGeckoAPI:
     
 #     # Example of getting historical data
 #     historical_data = cg_api.get_coin_history(coin_name, '19-02-2023')
-#     if historical_data:
+#     if isinstance(historical_data, list):
 #         print('Historical data:', historical_data)
 #     else:
-#         print("Error fetching historical data.")
-
+#         print("Error fetching historical data:", historical_data)

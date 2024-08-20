@@ -21,31 +21,32 @@ class Scraper:
             str: Extracted data from the URL.
 
         Raises:
-            RuntimeError: If the request fails or if an invalid format is specified.
+            ValueError: If an invalid format is specified.
+            RuntimeError: If the request fails or if the URL returns an unexpected status.
         """
         try:
             response = requests.get(url, headers=self.headers)
-           
-            if response.status_code == 200:
-                if format == 'html':
-                    return response.text
-                elif format == 'txt':
-                    soup = BeautifulSoup(response.text, 'html.parser')
-                    return soup.get_text().strip().replace('\n', '')
-                else:
-                    raise ValueError("Invalid return format. Use 'html' or 'txt'.")
-            
-            return "The URL denied access"
+            response.raise_for_status()  # Raises HTTPError for bad responses (4xx and 5xx)
+
+            if format == 'html':
+                return response.text
+            elif format == 'txt':
+                soup = BeautifulSoup(response.text, 'html.parser')
+                return soup.get_text().strip().replace('\n', '')
+            else:
+                raise ValueError("Invalid format specified. Use 'html' or 'txt'.")
 
         except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"Request failed in scraper: {e}")
+            raise RuntimeError(f"Request failed: {e}")
         except ValueError as e:
-            raise RuntimeError(f"Value error in scrapper: {e}")
-
-
+            raise ValueError(f"Value error: {e}")
 
 # Example usage:
-# scraper = Scraper()
-# url = 'https://vitalik.eth.limo/general/2024/05/31/blocksize.html'
-# text_data = scraper.extract_data(url, format='txt')
-# print('text_data: ', text_data)
+# if __name__ == "__main__":
+#     scraper = Scraper()
+#     url = 'https://vitalik.eth.limo/general/2024/05/31/blocksize.html'
+#     try:
+#         text_data = scraper.extract_data(url, format='txt')
+#         print('Extracted text data:', text_data)
+#     except (RuntimeError, ValueError) as e:
+#         print(f"Error occurred: {e}")
