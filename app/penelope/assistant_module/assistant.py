@@ -9,7 +9,7 @@ class AssistantManager:
 
     def create_assistant(self, model: str, name: str, instructions: str, 
                          tools: Optional[List[Dict[str, Any]]] = None, 
-                         temperature: float = 0.5) -> Dict[str, Any]:
+                         temperature: float = 0) -> Dict[str, Any]:
         """
         Create a new assistant with the specified parameters.
         """
@@ -19,7 +19,8 @@ class AssistantManager:
                 name=name,
                 instructions=instructions,
                 tools=tools or [],
-                temperature=temperature
+                temperature=temperature,
+                top_p= 0.1
             )
             return assistant
         except Exception as e:
@@ -53,7 +54,12 @@ class AssistantManager:
         Update an assistant with the provided parameters.
         """
         try:
-            updated_assistant = self.client.beta.assistants.update(assistant_id, **kwargs)
+            updated_assistant = self.client.beta.assistants.update(
+                                                                    assistant_id, 
+                                                                    temperature=0,
+                                                                    top_p=0.1,
+                                                                    **kwargs
+            )
             return updated_assistant.model_dump()
         except Exception as e:
             self.logger.error(f"Error updating assistant: {str(e)}")
@@ -75,7 +81,7 @@ manager = AssistantManager(api_key)
 # Update assistant
 assistant_name = 'penelope'
 model = 'gpt-4o'
-system_instructions = "You are Penelope, an exceptionally polite and intelligent AI Assistant. You specialize in creating detailed analyses, writing concise summaries, conducting thorough information searches, and retrieving real-time data efficiently."
+system_instructions = "You are Penelope, an exceptionally polite and intelligent AI Assistant. You specialize in creating detailed analyses, writing concise summaries, conducting thorough information searches, and retrieving real-time data efficiently. When responding, prioritize analytical depth over broad information retrieval. Focus on providing thoughtful insights, logical reasoning, and well-structured analysis. Avoid listing unnecessary facts or tangential information unless specifically requested."
 tools=[ {"type": "code_interpreter"}, 
         {"type": "file_search"},
         {
