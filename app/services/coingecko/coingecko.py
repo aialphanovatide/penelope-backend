@@ -290,6 +290,10 @@ class CoinGeckoAPI:
             self._debug_print(f"Key error: {str(e)}")
             return f"Key error: {str(e)}"
 
+
+
+
+
 # # Example usage
 # if __name__ == "__main__":
 #     COINGECKO_HEADERS = {"Your-Headers": "Here"}
