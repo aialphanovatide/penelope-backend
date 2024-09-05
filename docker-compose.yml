@@ -27,20 +27,19 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
   
-  # ngrok:
-  #   image: ngrok/ngrok:latest
-  #   restart: unless-stopped
-  #   environment:
-  #     - NGROK_CONFIG=/etc/ngrok.yml
-  #   volumes:
-  #     - ./ngrok.yml:/etc/ngrok.yml
-  #   command:
-  #     - "start"
-  #     - "--all"
-  #     - "--config"
-  #     - "/etc/ngrok.yml"
-  #   env_file:
-  #     - .env
+  ngrok:
+    image: ngrok/ngrok:latest
+    restart: always
+    environment:
+      - NGROK_CONFIG=/etc/ngrok.yml
+    volumes:
+      - ./ngrok.yml:/etc/ngrok.yml
+    command:
+      - "start"
+      - "--all"
+      - "--config=/etc/ngrok.yml"
+    env_file:
+      - .env   
 
 volumes:
   postgres_data:

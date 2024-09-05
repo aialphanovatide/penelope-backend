@@ -1,17 +1,49 @@
-from openai import OpenAI
+"""
+# Assistant module: create, update, delete, list, get assistant details, it is used for the agent to interact with the OpenAI API.
+"""
+
+from app.utils.response_template import method_response_template
 from typing import List, Dict, Any, Optional
+from openai import OpenAI
 import logging
+import os
 
 class AssistantManager:
-    def __init__(self, api_key: str):
-        self.client = OpenAI(api_key=api_key)
+    def __init__(self, api_key: Optional[str] = None, verbose: bool = False):
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+
+        if not self.api_key:
+            raise ValueError("OpenAI API key not provided and OPENAI_API_KEY environment variable not set")
+
+        self.client = OpenAI(api_key=self.api_key)
         self.logger = logging.getLogger(__name__)
+        self.verbose = verbose
+
+        if self.verbose:
+            logging.basicConfig(level=logging.DEBUG)
+
+    def log_debug(self, message: str, *args, **kwargs):
+        if self.verbose:
+            self.logger.debug(message, *args, **kwargs)
 
     def create_assistant(self, model: str, name: str, instructions: str, 
                          tools: Optional[List[Dict[str, Any]]] = None, 
                          temperature: float = 0.5) -> Dict[str, Any]:
         """
         Create a new assistant with the specified parameters.
+
+        Args:
+            model (str): The model to use for the assistant.
+            name (str): The name of the assistant.
+            instructions (str): The instructions for the assistant.
+            tools (Optional[List[Dict[str, Any]]], optional): A list of tools for the assistant. Defaults to None.
+            temperature (float, optional): The temperature setting for the assistant. Defaults to 0.5.
+
+        Returns:
+            Dict[str, Any]: The created assistant object.
+
+        Raises:
+            Exception: If there's an error during assistant creation.
         """
         try:
             assistant = self.client.beta.assistants.create(
@@ -21,159 +53,113 @@ class AssistantManager:
                 tools=tools or [],
                 temperature=temperature
             )
-            return assistant
+            return method_response_template(message="Assistant created successfully", 
+                                             data=assistant.model_dump(), 
+                                             success=True
+                                             )
         except Exception as e:
-            self.logger.error(f"Error creating assistant: {str(e)}")
-            raise
+            self.log_debug(f"Error creating assistant: {str(e)}")
+            self.log_debug(f"Assistant creation parameters: model={model}, name={name}, instructions={instructions}, tools={tools}, temperature={temperature}")
+            return method_response_template(message=f"Failed to create assistant: {str(e)}", 
+                                             data={"model": model, "name": name, "instructions": instructions, "tools": tools, "temperature": temperature}, 
+                                             success=False
+                                             )
 
-    def list_assistants(self, limit: int = 20) -> List[Dict[str, Any]]:
+    def list_assistants(self, limit: int = 20, order: str = "desc", after: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         List all assistants, up to the specified limit.
+
+        Args:
+            limit (int): The maximum number of assistants to return. Default is 20.
+            order (str): The order of the assistants. Can be "asc" or "desc". Default is "desc".
+            after (Optional[str]): A cursor for use in pagination. `after` is an object ID that defines your place in the list. Default is None.
+
+        Returns:
+            List[Dict[str, Any]]: A list of dictionaries, each containing the details of an assistant.
+
+        Raises:
+            ValueError: If an invalid order is provided.
+            Exception: If there's an error during the API call.
         """
         try:
-            assistants = self.client.beta.assistants.list(limit=limit)
-            return [assistant.model_dump() for assistant in assistants.data]
+            if order not in ["asc", "desc"]:
+                raise ValueError("Invalid order. Must be 'asc' or 'desc'.")
+
+            assistants = self.client.beta.assistants.list(limit=limit, order=order, after=after)
+            assistant_list = [assistant.model_dump() for assistant in assistants.data]
+
+            print("len:", len(assistant_list))
+
+            self.log_debug(f"Successfully retrieved {len(assistant_list)} assistants.")
+            return method_response_template(message=f"Successfully retrieved {len(assistant_list)} assistants.", 
+                                             data=assistant_list, 
+                                             success=True
+                                             )
+        
         except Exception as e:
-            self.logger.error(f"Error listing assistants: {str(e)}")
-            raise
+            self.log_debug(f"Error listing assistants: {str(e)}")
+            return method_response_template(message=f"Failed to list assistants: {str(e)}", 
+                                             data={"limit": limit, "order": order, "after": after}, 
+                                             success=False
+                                             )
 
     def delete_assistant(self, assistant_id: str) -> Dict[str, Any]:
         """
         Delete an assistant by its ID.
+
+        Args:
+            assistant_id (str): The ID of the assistant to delete.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the details of the deleted assistant.
+
+        Raises:
+            AssistantDeletionError: If there's an error during the deletion process.
         """
         try:
+            self.log_debug(f"Attempting to delete assistant with ID: {assistant_id}")
             deleted_assistant = self.client.beta.assistants.delete(assistant_id)
-            return deleted_assistant.model_dump()
+            self.log_debug(f"Successfully deleted assistant with ID: {assistant_id}")
+            return method_response_template(message="Successfully deleted assistant", 
+                                             data=deleted_assistant.model_dump(), 
+                                             success=True
+                                             )
         except Exception as e:
-            self.logger.error(f"Error deleting assistant: {str(e)}")
-            raise
+            self.log_debug(f"Error deleting assistant with ID {assistant_id}: {str(e)}")
+            return method_response_template(message=f"Failed to delete assistant: {str(e)}", 
+                                             data={"assistant_id": assistant_id}, 
+                                             success=False
+                                             )
 
     def update_assistant(self, assistant_id: str, **kwargs) -> Dict[str, Any]:
         """
         Update an assistant with the provided parameters.
+
+        Args:
+            assistant_id (str): The ID of the assistant to update.
+            **kwargs: Arbitrary keyword arguments representing the fields to update.
+                      These can include 'name', 'description', 'instructions', 'model', 'tools', etc.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the details of the updated assistant.
+
+        Raises:
+            AssistantError: If there's an error during the update process.
         """
         try:
+            self.log_debug(f"Attempting to update assistant with ID: {assistant_id}")
             updated_assistant = self.client.beta.assistants.update(assistant_id, **kwargs)
-            return updated_assistant.model_dump()
+            self.log_debug(f"Successfully updated assistant with ID: {assistant_id}")
+            return method_response_template(message="Successfully updated assistant", 
+                                             data=updated_assistant.model_dump(), 
+                                             success=True
+                                             )
         except Exception as e:
-            self.logger.error(f"Error updating assistant: {str(e)}")
-            raise
+            self.log_debug(f"Error updating assistant with ID {assistant_id}: {str(e)}")
+            return method_response_template(message=f"Failed to update assistant: {str(e)}", 
+                                             data={"assistant_id": assistant_id, "details": kwargs}, 
+                                             success=False
+                                             )
 
 
 
-# Example usage
-import os
-
-# Retrieve API key from environment variable
-api_key = os.getenv("OPENAI_API_KEY")
-assistant_id = os.getenv("ASSISTANT_ID")
-if not api_key:
-    raise ValueError("OPENAI_API_KEY environment variable not set")
-
-manager = AssistantManager(api_key)
-
-# Update assistant
-assistant_name = 'penelope'
-model = 'gpt-4o'
-system_instructions = "You are Penelope, an exceptionally polite and intelligent AI Assistant. You specialize in creating detailed analyses, writing concise summaries, conducting thorough information searches, and retrieving real-time data efficiently."
-tools=[ {"type": "code_interpreter"}, 
-        {"type": "file_search"},
-        {
-            "type": "function",
-            "function": {
-                "name": "get_latest_news",
-                "description": "Retrieves the latest news related to the specified token from a given API endpoint and returns the content of each article",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "coin": {
-                            "type": "string",
-                            "description": "name of the token, e.g. solana",
-                        },
-                    },
-                    "required": ["coin"],
-                    },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_token_data",
-                "description": "Fetch detailed data about a cryptocurrency token from the CoinGecko API",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "coin": {
-                            "type": "string",
-                            "description": "name of the coin, e.g. solana",
-                        },
-                    },
-                    "required": ["coin"],
-                    },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_llama_chains",
-                "description": "Fetch total value locked (TVL)",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "token_id": {
-                            "type": "string",
-                            "description": "ID of the token e.g. sol",
-                        },
-                    },
-                    "required": ["token_id"],
-                    },
-            },
-        }, 
-        {
-            "type": "function",
-            "function": {
-                "name": "extract_data",
-                "description": "goes to the specified url and extract the data for further analyses",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "url": {
-                            "type": "string",
-                            "description": "URL of the site",
-                        },
-                    },
-                    "required": ["url"],
-                    },
-            },
-        }, 
-        {
-            "type": "function",
-            "function": {
-                "name": "get_coin_history",
-                "description": "Extract historical data of tokens/coins, volumne, market cap, price...",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "coin_id": {
-                            "type": "string",
-                            "description": "name of the coin",
-                        },
-                        "date": {
-                            "type": "string",
-                            "description": "specific date",
-                        },
-                    },
-                    "required": ["coin_id", "date"],
-                    },
-            },
-        }, 
-    ]
-
-# response_update = manager.update_assistant(assistant_id=assistant_id,
-#                          tools=tools
-#                          )
-# print('response_update: ', response_update)
-
-# # List assistants
-# assistants = manager.list_assistants()
-# print("List of Assistants:", assistants)

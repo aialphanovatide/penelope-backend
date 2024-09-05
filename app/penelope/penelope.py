@@ -7,6 +7,8 @@ from openai.types.beta.assistant_stream_event import (
    ThreadRunRequiresAction, ThreadRunCompleted, ThreadMessageDelta, ThreadRunFailed,
    ThreadRunCreated, ThreadRunInProgress 
 )
+from http import HTTPStatus
+from app.utils.response_template import method_response_template
 from typing import List, Any, Dict, Generator
 from sqlalchemy.orm import Session
 from app.services.scrapper.scrapper import Scraper
@@ -325,16 +327,32 @@ class OpenAIAssistantManager:
         self._log(f"Message added successfully. Message ID: {message.id}")
         return message
     
-    def update_message_feedback(self, message_id: str, feedback):
-        db_message = self.db_session.query(Message).filter_by(id=message_id).first()
-        if db_message:
-            db_message.feedback = feedback
-            self.db_session.commit()
-            self._log(f"Updated feedback for message {message_id}\nMessage: {feedback}")
-            return {'message': f"Updated feedback for message {message_id}", 'success': True}
-        else:
-            self._log(f"Message {message_id} not found in database")
-            return {'message': f"Message {message_id} not found in database", 'success': False}
+    def update_message_feedback(self, message_id: str, feedback: str):
+        try:
+            db_message = self.db_session.query(Message).filter_by(id=message_id).first()
+            if db_message:
+                db_message.feedback = feedback
+                self.db_session.commit()
+                self._log(f"Updated feedback for message {message_id}\nMessage: {feedback}")
+                return method_response_template(
+                    message=f"Updated feedback for message {message_id}",
+                    data=feedback,
+                    success=True
+                )
+            else:
+                self._log(f"Message {message_id} not found in database")
+                return method_response_template(       
+                    message=f"Message {message_id} not found in database",
+                    data=feedback,
+                    success=False
+                )
+        except Exception as e:
+            self._log(f"Error updating message feedback: {str(e)}")
+            return method_response_template(
+            message=f"Error updating message feedback: {str(e)}",
+            data=None,
+            success=False
+            )
 
     def run_assistant(self, assistant_id, user_name, thread_id):
         self._log(f"Running assistant with ID: {assistant_id} for thread {thread_id}")
@@ -509,27 +527,50 @@ class OpenAIAssistantManager:
 
         return files_ids
 
-    def start_new_chat(self, user_id: str):
+    def start_new_chat(self, user_id: str) -> Dict[str, Any]:
         """
         Start a new chat by resetting the current thread and creating a new one.
 
         Args:
-        user_id (str): The ID of the user starting the new chat.
+            user_id (str): The ID of the user starting the new chat.
 
         Returns:
-        Thread: The newly created thread object.
+            str: The ID of the newly created thread.
+
+        Raises:
+            ValueError: If the user_id is None or empty.
+            Exception: If there's an error creating the new thread.
         """
+        if not user_id:
+            raise ValueError("User ID cannot be None or empty")
+
         self._log(f"Starting a new chat for user {user_id}")
 
-        # Reset the current thread if it exists
-        self.reset_thread(user_id)
+        try:
+            # Reset the current thread if it exists
+            self.reset_thread(user_id)
 
-        # Create and save a new thread
-        new_thread = self.get_or_create_thread(user_id)
+            # Create and save a new thread
+            new_thread = self.get_or_create_thread(user_id)
 
-        self._log(f"New chat started with thread ID: {new_thread}")
+            if not new_thread:
+                raise Exception("Failed to create a new thread")
 
-        return new_thread
+            self._log(f"New chat started with thread ID: {new_thread}")
+
+            return method_response_template(
+                message="New chat started successfully",
+                data=new_thread,
+                success=True
+            )
+
+        except Exception as e:
+            self._log(f"Error starting new chat for user {user_id}: {str(e)}")
+            return method_response_template(
+                message=f"Error starting new chat for user {user_id}: {str(e)}",
+                data=None,
+                success=False
+            )
 
     def reset_thread(self, user_id):
         self._log(f"Resetting thread for user {user_id}...")

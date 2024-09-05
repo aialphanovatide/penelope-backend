@@ -13,3 +13,5 @@ alembic
 psycopg2-binary
 google-generativeai
 uuid
+bcrypt
+psutil
