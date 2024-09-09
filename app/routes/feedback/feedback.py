@@ -1,16 +1,16 @@
+import psutil
 from http import HTTPStatus
+from flask import current_app
 from werkzeug.exceptions import BadRequest
 from app.penelope.penelope import penelope_manager
 from app.utils.response_template import response_template
-from flask import Blueprint, request, jsonify, render_template_string, render_template
-import psutil
-from flask import current_app
+from flask import Blueprint, request, render_template
 
-feedback_new_chat_bp = Blueprint('feedback_new_chat_bp', __name__,
+feedback_bp = Blueprint('feedback_bp', __name__,
                                  template_folder='templates')
 
 
-@feedback_new_chat_bp.route('/update_feedback', methods=['POST'])
+@feedback_bp.route('/update_feedback', methods=['POST'])
 def update_feedback():
     """
     Route to update feedback for a specific message.
@@ -34,6 +34,10 @@ def update_feedback():
         message_id = data.get('message_id')
         feedback = data.get('feedback')
 
+        print('message_id', message_id) 
+        print('feedback', feedback)
+        print(type(message_id), type(feedback))
+
         if message_id is None or feedback is None:
             return response_template(
                 message="Missing required parameters",
@@ -45,9 +49,11 @@ def update_feedback():
         if response['success']:
             return response_template(
                 message=response.get('message'),
+                data=response.get('data'),
                 status_code=HTTPStatus.OK
             )
         return response_template(
+            message="Bad Request",
             error=response.get('message', 'Unknown error occurred'),
             status_code=HTTPStatus.BAD_REQUEST
         )
@@ -67,66 +73,8 @@ def update_feedback():
 
 
 
-@feedback_new_chat_bp.route('/start_new_chat', methods=['POST'])
-def start_new_chat():
-    """
-    Start a new chat for a user.
 
-    This endpoint expects a JSON payload with a 'user_id' field.
-    It creates a new chat thread for the specified user.
-
-    Request JSON format:
-    {
-        "user_id": "some_user_id"
-    }
-
-    Returns:
-        JSON response with the new thread ID and a success message.
-
-    Responses:
-        200: New chat started successfully.
-        400: Bad request if user_id is missing.
-        500: Internal server error if an exception occurs.
-    """
-    data = request.get_json()
-    if not data:
-        return response_template(
-            message="Bad Request",
-            error="No JSON data provided",
-            status_code=HTTPStatus.BAD_REQUEST
-        )
-
-    user_id = data.get('user_id')
-    
-    if not user_id:
-        return response_template(
-            message="Bad Request",
-            error="User ID is required",
-            status_code=HTTPStatus.BAD_REQUEST
-        )
-    
-    try:
-        result = penelope_manager.start_new_chat(user_id)
-        if result['success']:
-            return response_template(
-                message=result['message'],
-                data=result['data'],
-                status_code=HTTPStatus.OK
-            )
-        else:
-            return response_template(
-                error=result['message'],
-                status_code=HTTPStatus.INTERNAL_SERVER_ERROR
-            )
-    except Exception as e:
-        return response_template(
-            message='Internal Server Error',
-            error=f'An unexpected error occurred: {str(e)}',
-            status_code=HTTPStatus.INTERNAL_SERVER_ERROR
-        )
-
-
-@feedback_new_chat_bp.route('/', methods=['GET'])
+@feedback_bp.route('/', methods=['GET'])
 def welcome():
     """
     Welcome route to render a simple welcome message with system metrics.

@@ -45,6 +45,8 @@ class User(Base):
     is_active = Column(Boolean, default=True)
 
     threads = relationship('Thread', back_populates='user', cascade="all, delete-orphan")
+    files = relationship('File', back_populates='user', cascade="all, delete-orphan")
+
 
     def as_dict(self):
             return {
@@ -60,8 +62,10 @@ class Thread(Base):
     Columns:
     - id (String): Primary key, 32-character unique identifier for the thread.
     - user_id (String): Foreign key referencing the User model.
+    - title (String): Human-readable name to identify the thread.
     - created_at (DateTime): Timestamp of thread creation.
     - updated_at (DateTime): Timestamp of last thread update.
+    - is_active (Boolean): Indicates if this is the user's current active thread.
 
     Relationships:
     - user: Many-to-one relationship with User model.
@@ -75,15 +79,17 @@ class Thread(Base):
 
     id = Column(String(32), primary_key=True)
     user_id = Column(String(255), ForeignKey('users.id'), nullable=False)
+    title = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.now())
     updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())
+    is_active = Column(Boolean, default=True)
 
     user = relationship('User', back_populates='threads')
-    messages = relationship('Message', back_populates='thread')
+    files = relationship('File', back_populates='thread', cascade="all, delete-orphan")
+    messages = relationship('Message', back_populates='thread', cascade="all, delete-orphan")
 
     def as_dict(self):
         return {column.name: getattr(self, column.name) for column in self.__table__.columns} 
-
 class Message(Base):
     """
     Represents a message within a thread.
@@ -94,10 +100,13 @@ class Message(Base):
     - role (String): Role of the message sender ('user', 'assistant', or 'system').
     - content (Text): The content of the message.
     - feedback (Text): Any feedback associated with the message.
+    - token_count (Integer): Count of tokens in the message.
     - created_at (DateTime): Timestamp of message creation.
+    - updated_at (DateTime): Timestamp of last message update.
 
     Relationships:
     - thread: Many-to-one relationship with Thread model.
+    - files: One-to-many relationship with File model.
 
     Methods:
     - as_dict(): Returns a dictionary representation of the message.
@@ -110,12 +119,15 @@ class Message(Base):
     role = Column(String(50), nullable=False)  # 'user', 'assistant', or 'system'
     content = Column(Text, nullable=False)
     feedback = Column(Text)
+    token_count = Column(Integer)
     created_at = Column(DateTime, default=datetime.now())
+    updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())
 
     thread = relationship('Thread', back_populates='messages')
+    files = relationship('File', back_populates='message', cascade="all, delete-orphan")
 
     def as_dict(self):
-        return {column.name: getattr(self, column.name) for column in self.__table__.columns} 
+        return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
 class Assistant(Base):
     """
@@ -153,8 +165,18 @@ class File(Base):
     - openai_file_id (String): Unique identifier from OpenAI for the file.
     - filename (String): Name of the file.
     - purpose (String): Purpose or type of the file (e.g., 'fine-tune', 'assistants').
+    - mime_type (String): MIME type of the file.
+    - size (Integer): Size of the file in bytes.
     - created_at (DateTime): Timestamp of file creation.
     - updated_at (DateTime): Timestamp of last file update.
+    - user_id (String): Foreign key referencing the User model.
+    - thread_id (String): Foreign key referencing the Thread model.
+    - message_id (String): Foreign key referencing the Message model.
+
+    Relationships:
+    - user: Many-to-one relationship with User model.
+    - thread: Many-to-one relationship with Thread model.
+    - message: Many-to-one relationship with Message model.
 
     Methods:
     - as_dict(): Returns a dictionary representation of the file.
@@ -165,11 +187,20 @@ class File(Base):
     openai_file_id = Column(String(255), unique=True, nullable=False)
     filename = Column(String(255), nullable=False)
     purpose = Column(String(50), nullable=False)
+    mime_type = Column(String(100), nullable=False)
+    size = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.now())
     updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())
+    user_id = Column(String(255), ForeignKey('users.id'), nullable=False)
+    thread_id = Column(String(32), ForeignKey('threads.id'), nullable=True)
+    message_id = Column(String(40), ForeignKey('messages.id'), nullable=True)
+
+    user = relationship("User", back_populates="files")
+    thread = relationship("Thread", back_populates="files")
+    message = relationship("Message", back_populates="files")
 
     def as_dict(self):
-        return {column.name: getattr(self, column.name) for column in self.__table__.columns} 
+        return {column.name: getattr(self, column.name) for column in self.__table__.columns}
     
 
 engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)

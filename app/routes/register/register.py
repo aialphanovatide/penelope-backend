@@ -30,7 +30,7 @@ def register_user():
     with Session() as session:
         try:
             existing_user = session.query(User).filter_by(email=data["email"]).first()
-            print("existing_user: ", existing_user)
+    
             if existing_user:
                 return response_template(
                     message="User already exists",
