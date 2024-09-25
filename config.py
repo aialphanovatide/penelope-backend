@@ -78,7 +78,7 @@ class Thread(Base):
     __tablename__ = 'threads'
 
     id = Column(String(32), primary_key=True)
-    user_id = Column(String(255), ForeignKey('users.id'), nullable=False)
+    user_id = Column(String(255), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     title = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.now())
     updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())
@@ -88,8 +88,10 @@ class Thread(Base):
     files = relationship('File', back_populates='thread', cascade="all, delete-orphan")
     messages = relationship('Message', back_populates='thread', cascade="all, delete-orphan")
 
+
     def as_dict(self):
         return {column.name: getattr(self, column.name) for column in self.__table__.columns} 
+    
 class Message(Base):
     """
     Represents a message within a thread.
@@ -115,7 +117,7 @@ class Message(Base):
     __tablename__ = 'messages'
 
     id = Column(String(40), primary_key=True)
-    thread_id = Column(String(32), ForeignKey('threads.id'), nullable=False)
+    thread_id = Column(String(32), ForeignKey('threads.id', ondelete='CASCADE'), nullable=False)
     role = Column(String(50), nullable=False)  # 'user', 'assistant', or 'system'
     content = Column(Text, nullable=False)
     feedback = Column(Text)
@@ -191,9 +193,9 @@ class File(Base):
     size = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.now())
     updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now())
-    user_id = Column(String(255), ForeignKey('users.id'), nullable=False)
-    thread_id = Column(String(32), ForeignKey('threads.id'), nullable=True)
-    message_id = Column(String(40), ForeignKey('messages.id'), nullable=True)
+    user_id = Column(String(255), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    thread_id = Column(String(32), ForeignKey('threads.id', ondelete='CASCADE'), nullable=True)
+    message_id = Column(String(40), ForeignKey('messages.id', ondelete='CASCADE'), nullable=True)
 
     user = relationship("User", back_populates="files")
     thread = relationship("Thread", back_populates="files")

@@ -34,10 +34,6 @@ def update_feedback():
         message_id = data.get('message_id')
         feedback = data.get('feedback')
 
-        print('message_id', message_id) 
-        print('feedback', feedback)
-        print(type(message_id), type(feedback))
-
         if message_id is None or feedback is None:
             return response_template(
                 message="Missing required parameters",
