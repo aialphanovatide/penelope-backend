@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Create the Flask application instance
 app = create_app()
 
 if __name__ == '__main__':

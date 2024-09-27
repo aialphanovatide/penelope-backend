@@ -138,7 +138,7 @@ class AssistantManager:
         Args:
             assistant_id (str): The ID of the assistant to update.
             **kwargs: Arbitrary keyword arguments representing the fields to update.
-                      These can include 'name', 'description', 'instructions', 'model', 'tools', etc.
+                      These can include 'name', 'description', 'instructions', 'model', 'tools', 'temperature', 'top_p', 'response_format', 'tool_resources', 'metadata'.
 
         Returns:
             Dict[str, Any]: A dictionary containing the details of the updated assistant.

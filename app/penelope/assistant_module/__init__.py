@@ -13,7 +13,7 @@ manager = AssistantManager()
 
 # Assistant initialization parameters
 assistant_name = 'penelope'
-model = 'gpt-4o'
+model = 'ft:gpt-4o-mini-2024-07-18:novatide-limited:penelope-base-formatted:ABWOPZKM'
 system_instructions = """You are Penelope, an exceptionally polite and intelligent AI Assistant. 
 You specialize in creating detailed analyses, writing concise summaries, conducting thorough 
 information searches, and retrieving real-time data efficiently.
@@ -22,6 +22,13 @@ You can use code interpreter to perform calculations, search the web, and answer
 You can also use file search to search for information in a file.
 You can use functions to perform specific tasks.
 """
+
+tool_choice = {"type": "function", "function": {"name": "my_function"}}
+tool_resources = tool_resources={
+    "file_search": {
+      "vector_store_ids": ["vs_9m79TZqChZcUjhY1QZPjVnnZ", "vs_itfm8Bn3yn9kI3guPPecbEjh"]
+    }
+}
 tools=[ {"type": "code_interpreter"}, 
         {"type": "file_search"},
         {
@@ -122,9 +129,10 @@ tools=[ {"type": "code_interpreter"},
 # print('assistant: ', assistant)
 
 # Update assistant
-# assistant_id = ""
+# assistant_id = "asst_VdfcHanMyyhsvEGF48GicLWv"
 # response_update = manager.update_assistant(assistant_id=assistant_id,
-#                          tools=tools
+#                          tool_resources=tool_resources,
+#                         # model=model
 #                          )
 # print('response_update: ', response_update)
 

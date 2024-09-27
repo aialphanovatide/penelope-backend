@@ -12,7 +12,7 @@ import time
 import json
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Generator, List, Tuple, Union
+from typing import Any, Dict, Generator, List, Tuple, Union, Literal
 
 # Third-party imports
 import graphviz
@@ -398,7 +398,7 @@ class Penelope:
         
         try:
             # Get or create thread
-            if thread_id:
+            if thread_id and thread_id != 'null':
                 active_thread_id = thread_id
             else:
                 thread_result = self.get_or_create_thread(user_id)
@@ -409,6 +409,8 @@ class Penelope:
                         type='error'
                     )
                     return
+                print(thread_result)
+                print(type(thread_result))
                 active_thread_id = thread_result['data']['thread_id']
 
             # Add user message
@@ -588,7 +590,6 @@ class Penelope:
                     success=False
                 )
     
-        
     def get_thread_messages(self, thread_id: str) -> Dict[str, Any]:
             """
             Retrieve messages from a thread.
@@ -710,8 +711,10 @@ class Penelope:
             run = self.client.beta.threads.runs.create(
                 thread_id=thread_id,
                 stream=True,
+                tool_choice = {"type": "function", "function": {"name": "get_latest_news"}},
+                parallel_tool_calls=True,
                 assistant_id=self.assistant_id,
-                additional_instructions=f"If the user is greeting or it's the initial conversation, personalize the response message with the user name, which is: {user_name}",
+                additional_instructions=f"If the user is greeting or it's the initial conversation, personalize the response message with the user name, which is: {user_name}. Also always use use at least the tool get_latest_news to consult the latest news about a cryptocurrency.",
             ) 
     
             self._log(f"Assistant run created successfully")
@@ -1060,6 +1063,30 @@ class Penelope:
         
         self._log(f"Flowchart generated: {file_path}")
         return file_path
+
+    def generate_image(self, prompt: str, size: str = "1024x1024", n: int = 1, style: Literal['vivid', 'natural'] = 'vivid') -> List[str]:
+        """
+        Generate images based on the given prompt.
+
+        Args:
+            prompt (str): The text prompt for image generation.
+            size (str): The size of the generated image. Defaults to "1024x1024".
+            n (int): The number of images to generate. Defaults to 1.
+
+        Returns:
+            List[str]: A list of URLs for the generated images.
+        """
+        # Generate the image using DALL-E
+        response = self.client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size=size,
+            n=n,
+            style=style
+        )
+
+        return [image.url for image in response.data]
+    
 
 penelope_manager = Penelope(verbose=True)
 
