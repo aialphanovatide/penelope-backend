@@ -26,7 +26,7 @@ You can use functions to perform specific tasks.
 tool_choice = {"type": "function", "function": {"name": "my_function"}}
 tool_resources = tool_resources={
     "file_search": {
-      "vector_store_ids": ["vs_9m79TZqChZcUjhY1QZPjVnnZ", "vs_itfm8Bn3yn9kI3guPPecbEjh"]
+      "vector_store_ids": ["vs_9m79TZqChZcUjhY1QZPjVnnZ"]
     }
 }
 tools=[ {"type": "code_interpreter"}, 

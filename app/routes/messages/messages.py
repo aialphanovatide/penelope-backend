@@ -17,12 +17,6 @@ def get_messages(thread_id):
     try:
         with Session() as session:
             messages = session.query(Message).filter_by(thread_id=thread_id).order_by(Message.created_at.asc()).all()
-
-            if not messages:
-                return response_template(
-                    message="No messages found for the thread",
-                    status_code=HTTPStatus.NOT_FOUND
-                )
             
             message_data = []
             for message in messages:

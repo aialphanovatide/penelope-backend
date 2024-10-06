@@ -42,8 +42,6 @@ def register_user():
             
             # Hash the password
             hashed_password = bcrypt.hashpw(hardcoded_password.encode('utf-8'), bcrypt.gensalt())
-
-            print("hashed_password: ", hashed_password)
             
             # Create a new user 
             new_user = User(

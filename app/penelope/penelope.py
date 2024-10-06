@@ -211,7 +211,7 @@ class Penelope:
 
                 return method_response_template(
                     message="Using existing active thread",
-                    data={'thread_id': active_thread.id, 'files_ids': None},
+                    data={'thread_id': active_thread.id},
                     success=True
                 )
 
@@ -263,15 +263,20 @@ class Penelope:
                 thread_id = openai_thread.id
 
                 # Save new thread to database
-                new_thread = Thread(id=thread_id, user_id=user_id, is_active=True)
+                new_thread = Thread(id=thread_id, 
+                                    user_id=user_id, 
+                                    is_active=True,
+                                    created_at=datetime.now(),
+                                    updated_at=datetime.now()
+                                    )
                 db.add(new_thread)
 
-            self._log(f"New thread created with ID: {thread_id}")
-            return method_response_template(
-                message="New thread created successfully",
-                data=thread_id,
-                success=True
-            )
+                self._log(f"New thread created with ID: {thread_id}")
+                return method_response_template(
+                    message="New thread created successfully",
+                    data={'thread_id': thread_id},
+                    success=True
+                )
 
         except (OpenAIError, SQLAlchemyError) as e:
             error_msg = f"Error creating new thread: {str(e)}"
@@ -409,10 +414,15 @@ class Penelope:
                         type='error'
                     )
                     return
-                print(thread_result)
-                print(type(thread_result))
+                
                 active_thread_id = thread_result['data']['thread_id']
+                yield penelope_response_template(
+                    message=f"Thread created successfully", 
+                    id=active_thread_id,
+                    type='thread_created'
+                )
 
+        
             # Add user message
             user_message_id = str(uuid.uuid4())
             user_message_result = self.add_message(
@@ -431,7 +441,7 @@ class Penelope:
                 )
                 return
             
-            
+         
             # Create run and stream response
             full_response = ""
             run_id = None
@@ -711,10 +721,10 @@ class Penelope:
             run = self.client.beta.threads.runs.create(
                 thread_id=thread_id,
                 stream=True,
-                tool_choice = {"type": "function", "function": {"name": "get_latest_news"}},
+                # tool_choice = {"type": "function", "function": {"name": "get_latest_news"}},
                 parallel_tool_calls=True,
                 assistant_id=self.assistant_id,
-                additional_instructions=f"If the user is greeting or it's the initial conversation, personalize the response message with the user name, which is: {user_name}. Also always use use at least the tool get_latest_news to consult the latest news about a cryptocurrency.",
+                additional_instructions=f"If the user is greeting or it's the initial conversation, personalize the response message with the user name, which is: {user_name}.",
             ) 
     
             self._log(f"Assistant run created successfully")

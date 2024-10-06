@@ -39,6 +39,7 @@ def start_new_chat():
         )
 
     user_id = data.get('user_id')
+    print('user_id: ', user_id)
     
     if not user_id:
         return response_template(
@@ -49,6 +50,7 @@ def start_new_chat():
     
     try:
         result = penelope_manager.create_new_thread(user_id)
+        print('result: ', result)
         if result['success']:
             return response_template(
                 message=result['message'],

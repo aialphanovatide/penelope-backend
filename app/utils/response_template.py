@@ -18,7 +18,7 @@ def penelope_response_template(message: str, id: str = None, type: str = 'chunk'
     }
 
 
-def response_template(message: str, data: dict = None, 
+def response_template(message: str = "No message provided", data: dict = None, 
                       error: str = None, status_code: int = 200):
     """
     Create a standardized response template for API endpoints.
