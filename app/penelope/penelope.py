@@ -5,7 +5,6 @@ Penelope class for getting user messages, storing them, and generating responses
 it can also handle file uploads and annotations in the messages, responds to multiple users and threads,
 and can handle tool calls to external APIs.
 """
-
 # Standard library imports
 import os
 import time
