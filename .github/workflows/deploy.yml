@@ -7,11 +7,116 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    env:
+      - PGADMIN_DEFAULT_EMAIL: ${{ secrets.PGADMIN_DEFAULT_EMAIL }}
+      - PGADMIN_DEFAULT_PASSWORD: ${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
+      - DB_USER: ${{ secrets.DB_USER }}
+      - DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      - DB_NAME: ${{ secrets.DB_NAME }}
+      - DATABASE_URL: ${{ secrets.DATABASE_URL }} 
+      - NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+      - NGROK_DOMAIN: ${{ secrets.NGROK_DOMAIN }}
+      - COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
+      - GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - NEWS_BOT_V2_URL: ${{ secrets.NEWS_BOT_V2_URL }}
+      - AI_ALPHA_MAIN_SERVER_URL: ${{ secrets.AI_ALPHA_MAIN_SERVER_URL }}
+      - OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      - PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+
+
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Trigger deployment
       run: |
-        curl -X POST \
-             -H "Authorization: Bearer ${{ secrets.DEPLOY_TOKEN }}" \ # noqa: unknown-context
-             https://your-macos-machine-address/deploy
+        echo "Starting deployment to Production environment..."
+        # Ensure we're in the correct directory
+        cd $GITHUB_WORKSPACE || exit 1
+        
+        echo "Fetching the latest changes..."
+        git fetch origin
+        
+        echo "Checking out the main branch..."
+        git checkout main
+        
+        echo "Pulling the latest changes from the main branch..."
+        PREVIOUS_COMMIT=$(git rev-parse HEAD)
+        git pull origin main
+        
+        # Function to start containers
+        start_containers() {
+          docker-compose -f docker-compose.yml -p penelope up -d --build
+          return $?
+        }
+        
+        # Function to stop containers
+        stop_containers() {
+          docker-compose -f docker-compose.yml -p penelope down
+        }
+        
+        # Function to perform health check
+        health_check() {
+          for i in {1..5}; do
+            if curl -f http://localhost:5000/health; then
+              return 0
+            fi
+            echo "Health check attempt $i failed. Retrying in 30 seconds..."
+            sleep 30
+          done
+          return 1
+        }
+        
+        # Function to rollback
+        rollback() {
+          echo "Rolling back to previous commit..."
+          git reset --hard $PREVIOUS_COMMIT
+          stop_containers
+          start_containers
+          if health_check; then
+            echo "Rollback successful"
+          else
+            echo "Rollback failed. Manual intervention required."
+            exit 1
+          fi
+        }
+        
+        # Main deployment logic
+        echo "Stopping containers..."
+        stop_containers
+        echo "Starting containers..."
+        if start_containers; then 
+          echo "Waiting for services to start..."
+          sleep 60
+          echo "Performing health check..."
+          if health_check; then
+            echo "Deployment successful. Health check passed."
+          else
+            echo "Health check failed. Rolling back..."
+            rollback
+          fi
+        else
+          echo "Failed to start containers. Rolling back..."
+          rollback
+        fi
+
+    - name: Deployment Status
+      if: always()
+      run: |
+        if [ ${{ job.status }} == 'success' ]; then
+          echo "Deployment to Production completed successfully!"
+        else
+          echo "Deployment to Production failed. Please check the logs for details."
+        fi
+
+    - name: Debug Information
+      if: failure()
+      run: |
+        echo "Current directory: $(pwd)"
+        echo "Contents of directory:"
+        ls -la
+        echo "Git status:"
+        git status
+        echo "Docker version:"
+        docker --version
+        echo "Docker Compose version:"
+        docker-compose --version
