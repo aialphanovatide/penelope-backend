@@ -9,20 +9,20 @@ jobs:
   deploy:
     runs-on: self-hosted
     env:
-      - PGADMIN_DEFAULT_EMAIL: ${{ secrets.PGADMIN_DEFAULT_EMAIL }}
-      - PGADMIN_DEFAULT_PASSWORD: ${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
-      - DB_USER: ${{ secrets.DB_USER }}
-      - DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-      - DB_NAME: ${{ secrets.DB_NAME }}
-      - DATABASE_URL: ${{ secrets.DATABASE_URL }} 
-      - NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
-      - NGROK_DOMAIN: ${{ secrets.NGROK_DOMAIN }}
-      - COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
-      - GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      - NEWS_BOT_V2_URL: ${{ secrets.NEWS_BOT_V2_URL }}
-      - AI_ALPHA_MAIN_SERVER_URL: ${{ secrets.AI_ALPHA_MAIN_SERVER_URL }}
-      - OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      - PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+      PGADMIN_DEFAULT_EMAIL: ${{ secrets.PGADMIN_DEFAULT_EMAIL }}
+      PGADMIN_DEFAULT_PASSWORD: ${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }} 
+      NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+      NGROK_DOMAIN: ${{ secrets.NGROK_DOMAIN }}
+      COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      NEWS_BOT_V2_URL: ${{ secrets.NEWS_BOT_V2_URL }}
+      AI_ALPHA_MAIN_SERVER_URL: ${{ secrets.AI_ALPHA_MAIN_SERVER_URL }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
 
 
     steps:
