@@ -6,6 +6,7 @@ load_dotenv()
 app = create_app()
 
 if __name__ == '__main__':
+    print("Starting Penelope...")
     app.run(
         port=5000,          
         debug=True,         
