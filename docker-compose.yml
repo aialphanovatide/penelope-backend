@@ -39,15 +39,8 @@ services:
         echo 'POSTGRES_DB: '${DB_NAME} &&
         echo 'Database directory contents:' &&
         ls -la /var/lib/postgresql/data &&
-        if [ ! -s /var/lib/postgresql/data/PG_VERSION ]; then
-          echo 'Initializing PostgreSQL database...' &&
-          docker-entrypoint.sh postgres &&
-          psql -v ON_ERROR_STOP=1 --username ${DB_USER} --dbname ${DB_NAME} <<-EOSQL
-            CREATE DATABASE ${DB_NAME};
-          EOSQL
-        fi &&
         docker-entrypoint.sh postgres
-      "
+      " 
   
   ngrok:
     image: ngrok/ngrok:latest
