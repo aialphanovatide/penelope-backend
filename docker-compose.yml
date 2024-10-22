@@ -32,6 +32,15 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    command: >
+      bash -c "
+        echo 'PostgreSQL environment variables:' &&
+        echo 'POSTGRES_USER: '${DB_USER} &&
+        echo 'POSTGRES_DB: '${DB_NAME} &&
+        echo 'Database directory contents:' &&
+        ls -la /var/lib/postgresql/data &&
+        docker-entrypoint.sh postgres
+      " 
   
   ngrok:
     image: ngrok/ngrok:latest
