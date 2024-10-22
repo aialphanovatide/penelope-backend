@@ -80,10 +80,10 @@ class Penelope:
     def _initialize_api_keys(self):
         self.api_key = os.getenv("OPENAI_API_KEY")
         self.coingecko_api_key = os.getenv("COINGECKO_API_KEY")
-        self.assistant_id = os.getenv("PENELPPE_ASSISTANT_ID")
+        self.assistant_id = os.getenv("PENELOPE_ASSISTANT_ID")
         
         if not self.api_key or not self.coingecko_api_key or not self.assistant_id:
-            raise ValueError("OPENAI_API_KEY, COINGECKO_API_KEY and PENELPPE_ASSISTANT_ID must be set in the environment.")
+            raise ValueError("OPENAI_API_KEY, COINGECKO_API_KEY and PENELOPE_ASSISTANT_ID must be set in the environment.")
         
         self.coingecko_headers = {
             "accept": "application/json",
