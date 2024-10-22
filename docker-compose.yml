@@ -15,6 +15,11 @@ services:
       - COINGECKO_API_KEY=${COINGECKO_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
+      - NEWS_BOT_V2_URL=${NEWS_BOT_V2_URL}
+      - AI_ALPHA_MAIN_SERVER_URL=${AI_ALPHA_MAIN_SERVER_URL}
+      - AWS_ACCESS=${AWS_ACCESS}
+      - AWS_SECRET_KEY=${AWS_SECRET_KEY}
+      - BUCKET_NAME=${BUCKET_NAME}
     depends_on:
       db:
         condition: service_healthy
@@ -31,7 +36,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 2
     ports:
       - "5433:5432"
     volumes:

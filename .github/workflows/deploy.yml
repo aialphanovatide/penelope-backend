@@ -24,7 +24,9 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
       PENELOPE_ASSISTANT_ID: ${{ secrets.PENELOPE_ASSISTANT_ID }}
-
+      AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
+      AWS_ACCESS: ${{ secrets.AWS_ACCESS }}
+      BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
 
     steps:
     - uses: actions/checkout@v4
