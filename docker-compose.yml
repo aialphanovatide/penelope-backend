@@ -11,6 +11,8 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PENELOPE_ASSISTANT_ID=${PENELOPE_ASSISTANT_ID}
+      - COINGECKO_API_KEY=${COINGECKO_API_KEY}
     depends_on:
       db:
         condition: service_healthy
