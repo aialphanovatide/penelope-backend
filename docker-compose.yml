@@ -40,6 +40,9 @@ services:
     command:
       - "http"
       - "--domain=${NGROK_DOMAIN}"
+      - "server:5000"
+    ports:
+      - "4040:4040"
   
   pgadmin:
     image: dpage/pgadmin4
