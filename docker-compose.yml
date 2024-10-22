@@ -13,6 +13,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - PENELOPE_ASSISTANT_ID=${PENELOPE_ASSISTANT_ID}
       - COINGECKO_API_KEY=${COINGECKO_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
       db:
         condition: service_healthy
