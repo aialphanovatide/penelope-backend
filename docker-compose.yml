@@ -34,9 +34,10 @@ services:
       - POSTGRES_DB=${DB_NAME}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 2
+      retries: 1
+      start_period: 5s
     ports:
       - "5433:5432"
     volumes:
