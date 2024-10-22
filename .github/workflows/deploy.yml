@@ -23,6 +23,7 @@ jobs:
       AI_ALPHA_MAIN_SERVER_URL: ${{ secrets.AI_ALPHA_MAIN_SERVER_URL }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+      PENELOPE_ASSISTANT_ID: ${{ secrets.PENELOPE_ASSISTANT_ID }}
 
 
     steps:
