@@ -6,6 +6,7 @@ from app.routes.threads.threads import threads_bp
 from app.routes.messages.messages import messages_bp
 from app.routes.image.image import image_bp
 from app.routes.agent.agent import agent_bp
+from app.routes.metrics.healthcheck import healthcheck_bp
 from flask_cors import CORS
 
 def create_app():
@@ -20,6 +21,6 @@ def create_app():
     app.register_blueprint(threads_bp)
     app.register_blueprint(messages_bp)
     app.register_blueprint(agent_bp)
-    
+    app.register_blueprint(healthcheck_bp)
     return app
 

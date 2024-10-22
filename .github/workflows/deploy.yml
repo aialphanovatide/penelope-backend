@@ -59,12 +59,12 @@ jobs:
         
         # Function to perform health check
         health_check() {
-          for i in {1..5}; do
+          for i in {1..2}; do
             if curl -f http://localhost:5000/health; then
               return 0
             fi
-            echo "Health check attempt $i failed. Retrying in 30 seconds..."
-            sleep 30
+            echo "Health check attempt $i failed. Retrying in 5 seconds..."
+            sleep 5
           done
           return 1
         }
