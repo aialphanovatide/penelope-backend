@@ -9,7 +9,7 @@ __version__ = '0.1.0'
 __author__ = 'David'
 
 # Assistant manager initialization
-manager = AssistantManager()
+manager = AssistantManager(verbose=True)
 
 # Assistant initialization parameters
 assistant_name = 'penelope'

@@ -1,10 +1,12 @@
 import os
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, ForeignKey, Text, Boolean
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
-from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import relationship
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
+from datetime import datetime
+import uuid
 
 Base = declarative_base()  
 
@@ -210,16 +212,37 @@ Session = sessionmaker(bind=engine)
 Base.metadata.create_all(engine)
 
 
-# with Session() as session:
-#     test_user = session.query(User).filter_by(username="testUser").first()
-#     if not test_user:
-#         test_user = User(
-#             id='107742922884470008787',
-#             username = "testUser",
-#             email = "daviddflix@gmail.com",
-#             password_hash='google signin'
-#         )
-#         session.add(test_user)
-#         session.commit()
-#         print('--- Test User Created ---')
-#     print('- Test user already exist -')
+def add_default_user():
+    """
+    Adds a default user to the database if it doesn't already exist.
+    
+    Args:
+    session (Session): SQLAlchemy database session.
+    
+    Returns:
+    User: The default user object.
+    """
+    session = Session()
+    default_user = session.query(User).filter_by(username='team').first()
+    
+    if default_user is None:
+        default_user = User(
+            id=str(uuid.uuid4()),
+            username='team',
+            email='team@novatidelabs.com',
+            password_hash=os.environ.get('DEFAULT_USER_PASSWORD'), 
+        )
+        
+        try:
+            session.add(default_user)
+            session.commit()
+            print("Default user added successfully.")
+        except IntegrityError:
+            session.rollback()
+            print("Default user already exists.")
+            default_user = session.query(User).filter_by(username='team').first()
+    
+    return default_user
+
+# Add default user to the database
+add_default_user()

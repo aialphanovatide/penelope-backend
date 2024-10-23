@@ -1,0 +1,161 @@
+{
+    "swagger": "2.0",
+    "info": {
+      "title": "Penelope API",
+      "description": "API documentation for Penelope",
+      "version": "2.1"
+    },
+    "tags": [
+      {
+        "name": "Image",
+        "description": "Image generation."
+      },
+      {
+        "name": "Inference",
+        "description": "Inference."
+      }
+    ],
+    "paths": {
+      "/generate-image": {
+        "post": {
+          "summary": "Generate images",
+          "description": "Endpoint to generate images based on a prompt.",
+          "tags": ["Image"],
+          "parameters": [
+            {
+              "name": "body",
+              "in": "body",
+              "required": true,
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "The prompt based on which to generate images.",
+                    "example": "A sunset over the mountains"
+                  }
+                },
+                "required": ["prompt"]
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful image generation",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image_urls": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid input",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "500": {
+              "description": "Internal server error",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/inference": {
+        "post": {
+          "summary": "Generate AI response",
+          "description": "Generates an AI response based on the provided prompt and user data. The response is streamed as server-sent events. \n\n**Example Usage:**\n- **Prompt**: 'Generate a summary of the attached document.'\n- **User**: '{\"data\": {\"id\": \"868e2de4-fbfb-4224-8f8b-6b7e3389b584\", \"username\": \"team\"}}'\n- **Files**: Upload documents or images for analysis.\n\nThis endpoint supports multipart form data for file uploads.",
+          "tags": ["Inference"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "multipart/form-data": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "prompt": {
+                      "type": "string",
+                      "description": "The user's input prompt"
+                    },
+                    "user": {
+                      "type": "string",
+                      "description": "JSON string containing user data",
+                      "example": "{\"data\": {\"id\": \"868e2de4-fbfb-4224-8f8b-6b7e3389b584\", \"username\": \"team\"}}"
+                    },
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "binary"
+                      },
+                      "description": "Optional files to be processed"
+                    },
+                    "thread_id": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Thread ID for conversation context. Must be set as null if not provided."
+                    }
+                  },
+                  "required": ["prompt", "user"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful response",
+              "content": {
+                "text/event-stream": {
+                  "schema": {
+                    "type": "string"
+                  },
+                  "example": "data: {\"type\": \"chunk\", \"content\": \"AI generated response chunk\"}\n\n"
+                }
+              }
+            },
+            "400": {
+              "description": "Bad Request",
+              "content": {
+                "text/event-stream": {
+                  "schema": {
+                    "type": "string"
+                  },
+                  "example": "data: {\"type\": \"error\", \"content\": \"Missing required parameters: prompt or user\"}\n\n"
+                }
+              }
+            },
+            "500": {
+              "description": "Internal Server Error",
+              "content": {
+                "text/event-stream": {
+                  "schema": {
+                    "type": "string"
+                  },
+                  "example": "data: {\"type\": \"error\", \"content\": \"Error during response generation\"}\n\n"
+                }
+              }
+            }
+          }
+        }
+     }
+  }
+}
