@@ -8,7 +8,7 @@ class Scraper:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
         }
 
-    def extract_data(self, url: str, format: Optional[str] = 'html') -> str:
+    def extract_data(self, url: str, format: Optional[str] = 'txt') -> str:
         """
         Extracts data from a given URL.
 
@@ -46,6 +46,6 @@ class Scraper:
 
 # Example usage:
 # scraper = Scraper()
-# url = 'https://vitalik.eth.limo/general/2024/05/31/blocksize.html'
+# url = 'https://vitalik.eth.limo/general/2024/10/23/futures4.html'
 # text_data = scraper.extract_data(url, format='txt')
 # print('text_data: ', text_data)

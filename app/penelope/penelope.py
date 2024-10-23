@@ -497,11 +497,26 @@ class Penelope:
     def _process_tool_calls(self, tool_calls: List[Any]) -> List[Dict[str, str]]:
         self._log(f"Processing {len(tool_calls)} tool calls...")
         tool_outputs = []
+        max_output_size = 512 * 1024  # 512 KB in bytes
+
         for tool in tool_calls:
             self._log(f"Processing tool: {tool.function.name}")
             if tool.function.name in self.tool_functions:
                 args = json.loads(tool.function.arguments)
                 output = self.tool_functions[tool.function.name](**args)
+
+                # Convert output to string if it's not already
+                output_str = str(output)
+                
+                # Truncate the output if it's too large
+                if len(output_str.encode('utf-8')) > max_output_size:
+                    self._log(f"Tool output too large, truncating: {len(output_str)} characters")
+                    truncation_message = "\n...[Output truncated due to size limits]"
+                    available_size = max_output_size - len(truncation_message.encode('utf-8'))
+                    output_str = output_str.encode('utf-8')[:available_size].decode('utf-8', errors='ignore')
+                    output_str += truncation_message
+                  
+
                 tool_outputs.append({
                     "tool_call_id": tool.id,
                     "output": str(output)
@@ -720,7 +735,6 @@ class Penelope:
             run = self.client.beta.threads.runs.create(
                 thread_id=thread_id,
                 stream=True,
-                # tool_choice = {"type": "function", "function": {"name": "get_latest_news"}},
                 parallel_tool_calls=True,
                 assistant_id=self.assistant_id,
                 additional_instructions=f"If the user is greeting or it's the initial conversation, personalize the response message with the user name, which is: {user_name}.",
@@ -981,7 +995,9 @@ class Penelope:
 
                     try:
                         # Upload to OpenAI
-                        file_response = self.client.files.create(file=file.stream, purpose="assistants")
+                        purpose = "vision" if file_extension.endswith(('png', 'jpg', 'jpeg')) else "assistants"
+                        self._log(f"Uploading file with purpose: {purpose}")
+                        file_response = self.client.files.create(file=file.stream, purpose=purpose)
                     
                         if file_response.status == 'processed':
                             openai_file_id = file_response.id
